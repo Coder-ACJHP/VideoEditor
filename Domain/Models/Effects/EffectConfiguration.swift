@@ -13,7 +13,7 @@
 
 import Foundation
 
-enum EffectConfiguration: Equatable {
+nonisolated enum EffectConfiguration: Equatable, Sendable {
     case filter(FilterEffect)
     case transform(TransformEffect)
     case speed(SpeedEffect)

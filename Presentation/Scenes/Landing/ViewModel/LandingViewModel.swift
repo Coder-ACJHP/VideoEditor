@@ -32,6 +32,44 @@ final class LandingViewModel {
         router.navigate(to: .editor, animated: true)
     }
 
+    /// Updates display name and `lastModifiedDate`. Ignores empty / whitespace-only names.
+    func renameProject(id: UUID, to newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let idx = allProjects.firstIndex(where: { $0.id == id }) else { return }
+        allProjects[idx].name = trimmed
+        allProjects[idx].lastModifiedDate = Date()
+        applySortAndPublish()
+    }
+    
+    func loadStoredProjects() {
+        allProjects = [
+            EditingProject(
+                id: UUID(),
+                name: "Mock Project 1",
+                creationDate: Date.now,
+                lastModifiedDate: Date.now,
+                tracks: [
+                    MediaTrack(
+                        id: UUID(),
+                        trackType: .video,
+                        clips: [
+                            MediaClip(imageAsset: .image(Bundle.main.resourceURL!.appendingPathComponent("img1.jpg")), timelineOffset: 0, duration: .zero)
+                        ],
+                        isMuted: true,
+                        volume: .zero
+                    )
+                ],
+                exportSettings: ExportSettings.default
+            )
+        ]
+        projects = allProjects
+    }
+
+    func deleteProject(id: UUID) {
+        allProjects.removeAll { $0.id == id }
+        applySortAndPublish()
+    }
+
     func setSortOption(_ option: SortOption) {
         guard selectedSortOption != option else { return }
         selectedSortOption = option

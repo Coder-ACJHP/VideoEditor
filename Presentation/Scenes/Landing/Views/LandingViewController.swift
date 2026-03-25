@@ -3,13 +3,15 @@
 //  VideoEditor
 //
 
-import PhotosUI
 import UIKit
 import Combine
+import PhotosUI
+
+enum LandingSection: String, Hashable, Sendable {
+    case main
+}
 
 final class LandingViewController: UIViewController {
-
-    private let viewModel: LandingViewModel
 
     // MARK: - UI
 
@@ -55,7 +57,6 @@ final class LandingViewController: UIViewController {
         let cv = UICollectionView(frame: .zero, collectionViewLayout: layout)
         cv.backgroundColor = .clear
         cv.translatesAutoresizingMaskIntoConstraints = false
-        cv.dataSource = self
         cv.delegate = self
         cv.register(ProjectCell.self, forCellWithReuseIdentifier: ProjectCell.reuseIdentifier)
         return cv
@@ -79,16 +80,27 @@ final class LandingViewController: UIViewController {
 
     private var projects: [EditingProject] = []
     private var cancellables: Set<AnyCancellable> = []
-
+    
+    private let viewModel: LandingViewModel
+    typealias DataSource = UICollectionViewDiffableDataSource<LandingSection, EditingProject>
+    typealias Snapshot = NSDiffableDataSourceSnapshot<LandingSection, EditingProject>
+    private var dataSource: DataSource!
+    
     /// Shared thumbnail service injected into every cell.
     /// One instance = one cache shared across all visible cells,
     /// so the same asset is never decoded twice per session.
     private let thumbnailService: ThumbnailGenerating
+    private let mediaPermissions: MediaDevicePermissionProviding
 
     // MARK: - Init
 
-    init(router: RouterDelegate, thumbnailService: ThumbnailGenerating = LocalThumbnailService()) {
+    init(
+        router: RouterDelegate,
+        thumbnailService: ThumbnailGenerating = LocalThumbnailService(),
+        mediaPermissions: MediaDevicePermissionProviding = SystemMediaPermissionService()
+    ) {
         self.thumbnailService = thumbnailService
+        self.mediaPermissions = mediaPermissions
         self.viewModel = LandingViewModel(
             router: router,
             importService: LocalMediaImportService()
@@ -115,6 +127,7 @@ final class LandingViewController: UIViewController {
 
         setupUI()
         bindViewModel()
+        viewModel.loadStoredProjects()
     }
 
     private func setupUI() {
@@ -154,6 +167,8 @@ final class LandingViewController: UIViewController {
             opacity: 1.0,
             offset: CGSize(width: 0, height: 5)
         )
+        
+        configureDataSource()
     }
 
     private func bindViewModel() {
@@ -172,8 +187,11 @@ final class LandingViewController: UIViewController {
             .sink { [weak self] projects in
                 guard let self else { return }
                 self.projects = projects
-                collectionView.reloadData()
-                updateEmptyState()
+                var snapshot = Snapshot()
+                snapshot.appendSections([.main])
+                snapshot.appendItems(projects, toSection: .main)
+                self.dataSource.apply(snapshot, animatingDifferences: true)
+                self.updateEmptyState()
             }
             .store(in: &cancellables)
         
@@ -198,8 +216,30 @@ final class LandingViewController: UIViewController {
         let isEmpty = projects.isEmpty
         collectionView.isHidden = isEmpty
         emptyStateLabel.isHidden = !isEmpty
-        navigationItem.rightBarButtonItem?.isEnabled = !isEmpty
+        navigationItem.rightBarButtonItem?.isEnabled = !isEmpty && !(viewModel.isLoading)
     }
+    
+    func configureDataSource() {
+        let registration = UICollectionView.CellRegistration<ProjectCell, EditingProject> { [weak self] cell, indexPath, item in
+            guard let self else { return }
+            cell.configure(
+                with: item,
+                thumbnailService: self.thumbnailService,
+                projectActionsMenu: self.makeProjectActionsMenu(for: item)
+            )
+        }
+
+        dataSource = DataSource(collectionView: collectionView) { collectionView, indexPath, project in
+            collectionView.dequeueConfiguredReusableCell(using: registration, for: indexPath, item: project)
+        }
+
+        // Initial empty snapshot
+        var snapshot = Snapshot()
+        snapshot.appendSections([.main])
+        dataSource.apply(snapshot, animatingDifferences: false)
+    }
+
+
 
     // MARK: - Actions
 
@@ -237,11 +277,11 @@ final class LandingViewController: UIViewController {
         let sheet = UIAlertController(title: "Create New Project", message: nil, preferredStyle: .actionSheet)
 
         sheet.addAction(UIAlertAction(title: "Gallery", style: .default) { [weak self] _ in
-            self?.presentGalleryPicker()
+            self?.presentGalleryAfterPermissionCheck()
         })
 
         sheet.addAction(UIAlertAction(title: "Camera", style: .default) { [weak self] _ in
-            self?.presentCameraNotReadyAlert()
+            self?.presentCameraAfterPermissionCheck()
         })
 
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -254,6 +294,20 @@ final class LandingViewController: UIViewController {
         present(sheet, animated: true)
     }
 
+    private func presentCameraAfterPermissionCheck() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await self.mediaPermissions.ensureCameraAccess()
+                self.presentCameraNotReadyAlert()
+            } catch let error as MediaPermissionError {
+                self.presentMediaPermissionAlert(error: error)
+            } catch {
+                self.presentImportError(error.localizedDescription)
+            }
+        }
+    }
+
     private func presentCameraNotReadyAlert() {
         let alert = UIAlertController(
             title: "Coming soon",
@@ -262,6 +316,20 @@ final class LandingViewController: UIViewController {
         )
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+
+    private func presentGalleryAfterPermissionCheck() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await self.mediaPermissions.ensurePhotoLibraryReadAccess()
+                self.presentGalleryPicker()
+            } catch let error as MediaPermissionError {
+                self.presentMediaPermissionAlert(error: error)
+            } catch {
+                self.presentImportError(error.localizedDescription)
+            }
+        }
     }
 
     private func presentGalleryPicker() {
@@ -274,6 +342,23 @@ final class LandingViewController: UIViewController {
         present(picker, animated: true)
     }
 
+    private func presentMediaPermissionAlert(error: MediaPermissionError) {
+        let alert = UIAlertController(
+            title: "Permission needed",
+            message: error.localizedDescription,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if error != .cameraUnavailable, error != .photoLibraryRestricted,
+           error != .photoLibraryAddRestricted, error != .cameraRestricted {
+            alert.addAction(UIAlertAction(title: "Settings", style: .default) { _ in
+                guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                UIApplication.shared.open(url)
+            })
+        }
+        present(alert, animated: true)
+    }
+
     private func presentImportError(_ errorMessage: String) {
         let alert = UIAlertController(
             title: "Import failed",
@@ -283,21 +368,72 @@ final class LandingViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
+
+    private func presentRenameProjectAlert(project: EditingProject) {
+        let alert = UIAlertController(
+            title: "Rename project",
+            message: nil,
+            preferredStyle: .alert
+        )
+        alert.addTextField { field in
+            field.text = project.name
+            field.autocapitalizationType = .words
+            field.clearButtonMode = .whileEditing
+        }
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self, weak alert] _ in
+            guard let self, let text = alert?.textFields?.first?.text else { return }
+            self.viewModel.renameProject(id: project.id, to: text)
+            // Diffable data treats same `id` as unchanged; reload after the published snapshot applies.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let updated = self.viewModel.projects.first(where: { $0.id == project.id }) else { return }
+                var snapshot = self.dataSource.snapshot()
+                snapshot.reloadItems([updated])
+                self.dataSource.apply(snapshot, animatingDifferences: true)
+            }
+        })
+
+        present(alert, animated: true)
+    }
+
+    private func presentDeleteProjectConfirmation(project: EditingProject) {
+        let alert = UIAlertController(
+            title: "Delete project?",
+            message: "“\(project.name)” will be removed. This cannot be undone.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            self?.viewModel.deleteProject(id: project.id)
+        })
+        present(alert, animated: true)
+    }
+
+    private func makeProjectActionsMenu(for project: EditingProject) -> UIMenu {
+        let rename = UIAction(
+            title: "Rename project",
+            image: UIImage(systemName: "pencil")
+        ) { [weak self] _ in
+            self?.presentRenameProjectAlert(project: project)
+        }
+        let delete = UIAction(
+            title: "Delete project",
+            image: UIImage(systemName: "trash"),
+            attributes: .destructive
+        ) { [weak self] _ in
+            self?.presentDeleteProjectConfirmation(project: project)
+        }
+        return UIMenu(title: "", children: [rename, delete])
+    }
 }
 
 // MARK: - UICollectionView
 
-extension LandingViewController: UICollectionViewDataSource, UICollectionViewDelegate {
+extension LandingViewController: UICollectionViewDelegate {
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         projects.count
-    }
-
-    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: ProjectCell.reuseIdentifier, for: indexPath)
-        guard let cell = cell as? ProjectCell else { return cell }
-        cell.configure(with: projects[indexPath.item], thumbnailService: thumbnailService)
-        return cell
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
@@ -320,3 +456,4 @@ extension LandingViewController: PHPickerViewControllerDelegate {
         }
     }
 }
+

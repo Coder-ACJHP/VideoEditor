@@ -12,7 +12,7 @@
 
 import Foundation
 
-struct ClipTransition: Codable, Equatable {
+nonisolated struct ClipTransition: Codable, Equatable {
 
     var type: TransitionType
 

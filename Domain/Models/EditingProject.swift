@@ -14,7 +14,9 @@
 import CoreMedia
 import Foundation
 
-struct EditingProject: Identifiable, Codable {
+/// Excludes this domain value type from the target’s default MainActor isolation
+/// (`SWIFT_DEFAULT_ACTOR_ISOLATION`), keeping `Hashable & Sendable` usable as a diffable item ID.
+nonisolated struct EditingProject: Identifiable, Codable, Hashable, Sendable {
 
     let id: UUID
     var name: String
@@ -24,7 +26,7 @@ struct EditingProject: Identifiable, Codable {
 
     /// Sıralı track listesi.
     /// İndeks sırası z-order'ı belirler: yüksek indeks = üstte render edilir.
-    var tracks: [VideoTrack]
+    var tracks: [MediaTrack]
 
     var exportSettings: ExportSettings
 
@@ -51,7 +53,7 @@ struct EditingProject: Identifiable, Codable {
         name: String,
         creationDate: Date = Date(),
         lastModifiedDate: Date = Date(),
-        tracks: [VideoTrack] = [],
+        tracks: [MediaTrack] = [],
         exportSettings: ExportSettings = .default
     ) {
         self.id = id
@@ -61,4 +63,8 @@ struct EditingProject: Identifiable, Codable {
         self.tracks = tracks
         self.exportSettings = exportSettings
     }
+    
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    
+    static func == (lhs: EditingProject, rhs: EditingProject) -> Bool { lhs.id == rhs.id }
 }

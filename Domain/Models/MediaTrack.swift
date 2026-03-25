@@ -1,5 +1,5 @@
 //
-//  VideoTrack.swift
+//  MediaTrack.swift
 //  VideoEditor
 //
 //  Composition timeline'daki tek bir şerit (lane).
@@ -11,11 +11,11 @@
 
 import Foundation
 
-struct VideoTrack: Identifiable, Codable {
+nonisolated struct MediaTrack: Identifiable, Codable, Sendable {
 
     let id: UUID
     var trackType: TrackType
-    var clips: [VideoClip]
+    var clips: [MediaClip]
 
     /// Ses kanallarına özgü: true olduğunda engine bu track'i mixe katmaz.
     var isMuted: Bool
@@ -38,7 +38,7 @@ struct VideoTrack: Identifiable, Codable {
     init(
         id: UUID = UUID(),
         trackType: TrackType,
-        clips: [VideoClip] = [],
+        clips: [MediaClip] = [],
         isMuted: Bool = false,
         volume: Float = 1.0
     ) {

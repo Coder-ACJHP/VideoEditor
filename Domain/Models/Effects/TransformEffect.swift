@@ -9,7 +9,7 @@
 import CoreGraphics
 import Foundation
 
-struct TransformEffect: Codable, Equatable {
+nonisolated struct TransformEffect: Codable, Equatable {
 
     /// Ölçek çarpanı. 1.0 = orijinal boyut, 2.0 = 2x büyütülmüş.
     var scale: CGFloat

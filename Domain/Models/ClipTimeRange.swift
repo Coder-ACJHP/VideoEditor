@@ -10,7 +10,7 @@
 import CoreMedia
 import Foundation
 
-struct ClipTimeRange: Codable, Equatable, Hashable {
+nonisolated struct ClipTimeRange: Codable, Equatable, Hashable, Sendable {
 
     var startSeconds: Double
     var durationSeconds: Double

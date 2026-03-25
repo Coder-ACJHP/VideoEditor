@@ -8,7 +8,7 @@
 
 import AVFoundation
 
-struct ExportSettings: Codable, Equatable {
+nonisolated struct ExportSettings: Codable, Equatable, Sendable {
 
     var preset: ExportPreset
     var fileType: ExportFileType

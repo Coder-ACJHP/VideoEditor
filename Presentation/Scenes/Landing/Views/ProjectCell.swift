@@ -10,7 +10,7 @@
 //  • No AVFoundation / image decoding — delegated to ThumbnailGenerating.
 //  • No date or byte-size arithmetic — delegated to RelativeDateFormatter /
 //    FileSizeFormatter.
-//  • No domain-model queries beyond what configure(with:) receives.
+//  • No domain-model queries beyond what `configure(...)` receives.
 
 import UIKit
 
@@ -36,6 +36,8 @@ final class ProjectCell: UICollectionViewCell {
         label.font = .preferredFont(forTextStyle: .headline)
         label.adjustsFontForContentSizeCategory = true
         label.textColor = .label
+        label.minimumScaleFactor = 0.75
+        label.adjustsFontSizeToFitWidth = true
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
@@ -45,8 +47,26 @@ final class ProjectCell: UICollectionViewCell {
         label.font = .preferredFont(forTextStyle: .footnote)
         label.adjustsFontForContentSizeCategory = true
         label.textColor = .secondaryLabel
+        label.minimumScaleFactor = 0.75
+        label.adjustsFontSizeToFitWidth = true
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
+    }()
+
+    /// Opens a `UIMenu` from the view controller (rename / delete) — avoids context-menu preview shadow.
+    private let projectMenuButton: UIButton = {
+        var config = UIButton.Configuration.plain()
+        config.image = UIImage(systemName: "pencil")
+        config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+        config.baseForegroundColor = .label
+        config.background.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.92)
+        config.background.cornerRadius = 20
+        config.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 10, bottom: 10, trailing: 10)
+        let button = UIButton(configuration: config)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.showsMenuAsPrimaryAction = true
+        button.accessibilityLabel = NSLocalizedString("Project options", comment: "Pencil button on project cell")
+        return button
     }()
 
     // MARK: - State
@@ -74,6 +94,7 @@ final class ProjectCell: UICollectionViewCell {
         thumbnailImageView.tintColor = nil
         titleLabel.text = nil
         metaLabel.text = nil
+        projectMenuButton.menu = nil
     }
 
     // MARK: - Configuration
@@ -85,10 +106,17 @@ final class ProjectCell: UICollectionViewCell {
     ///   - thumbnailService: Service responsible for async thumbnail generation and caching.
     ///                       Injected so the cell remains testable and the service is shared
     ///                       across the collection (single cache, no duplicate work).
-    func configure(with project: EditingProject, thumbnailService: ThumbnailGenerating) {
+    ///   - projectActionsMenu: Popover menu for rename/delete; `nil` hides the pencil control.
+    func configure(
+        with project: EditingProject,
+        thumbnailService: ThumbnailGenerating,
+        projectActionsMenu: UIMenu?
+    ) {
         titleLabel.text = project.name
         metaLabel.text = "\(RelativeDateFormatter.string(from: project.creationDate)) • \(FileSizeFormatter.string(fromByteCount: project.totalByteSize))"
         loadThumbnail(asset: project.firstAssetIdentifier, using: thumbnailService)
+        projectMenuButton.menu = projectActionsMenu
+        projectMenuButton.isHidden = projectActionsMenu == nil
     }
 
     // MARK: - Private
@@ -96,6 +124,7 @@ final class ProjectCell: UICollectionViewCell {
     private func setupLayout() {
         contentView.backgroundColor = .clear
         contentView.addSubview(thumbnailImageView)
+        contentView.addSubview(projectMenuButton)
         contentView.addSubview(titleLabel)
         contentView.addSubview(metaLabel)
 
@@ -105,7 +134,12 @@ final class ProjectCell: UICollectionViewCell {
             thumbnailImageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             thumbnailImageView.heightAnchor.constraint(equalToConstant: 176),
 
-            titleLabel.topAnchor.constraint(equalTo: thumbnailImageView.bottomAnchor, constant: 10),
+            projectMenuButton.topAnchor.constraint(equalTo: thumbnailImageView.topAnchor, constant: 8),
+            projectMenuButton.trailingAnchor.constraint(equalTo: thumbnailImageView.trailingAnchor, constant: -8),
+            projectMenuButton.widthAnchor.constraint(equalToConstant: 40),
+            projectMenuButton.heightAnchor.constraint(equalToConstant: 40),
+
+            titleLabel.topAnchor.constraint(equalTo: thumbnailImageView.bottomAnchor, constant: 10.resp),
             titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 2),
             titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -2),
 
@@ -114,6 +148,14 @@ final class ProjectCell: UICollectionViewCell {
             metaLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
             metaLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor)
         ])
+        
+        // Drop shadow to continue button
+        projectMenuButton.dropOuterShadow(
+            withColor: .black.withAlphaComponent(0.2),
+            radius: 5,
+            opacity: 1.0,
+            offset: CGSize(width: 0, height: 5)
+        )
     }
 
     private func loadThumbnail(asset: AssetIdentifier?, using service: ThumbnailGenerating) {

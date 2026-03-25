@@ -16,7 +16,7 @@
 
 import Foundation
 
-struct SpeedEffect: Codable, Equatable {
+nonisolated struct SpeedEffect: Codable, Equatable {
 
     /// Oynatma hız çarpanı.
     /// Geçerli aralık: 0.1 ... 4.0

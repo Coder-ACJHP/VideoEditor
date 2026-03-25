@@ -9,7 +9,7 @@
 
 import Foundation
 
-enum AssetIdentifier: Codable, Hashable {
+nonisolated enum AssetIdentifier: Codable, Hashable {
 
     /// Uygulama sandbox'ındaki yerel video dosyası.
     case video(URL)

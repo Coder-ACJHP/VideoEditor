@@ -1,5 +1,5 @@
 //
-//  VideoClip.swift
+//  MediaClip.swift
 //  VideoEditor
 //
 //  Bir kaynak medya parçasının composition timeline üzerindeki yerleşimini
@@ -13,7 +13,7 @@
 
 import Foundation
 
-struct VideoClip: Identifiable, Codable {
+nonisolated struct MediaClip: Identifiable, Codable, Sendable {
 
     let id: UUID
 
@@ -78,7 +78,7 @@ struct VideoClip: Identifiable, Codable {
         id: UUID = UUID(),
         imageAsset: AssetIdentifier,
         timelineOffset: Double,
-        duration: Double = VideoClip.defaultImageDuration,
+        duration: Double = MediaClip.defaultImageDuration,
         transitionOut: ClipTransition? = nil,
         opacity: Float = 1.0
     ) {

@@ -10,6 +10,20 @@ import Foundation
 
 enum ProjectFactory {
 
+    static var newProjectName: String {
+        get {
+            let newCount = createdProjectsCount + 1
+            return "New Project \(newCount)"
+        }
+    }
+    
+    private static let projectCountKey = "createdAppCount"
+    
+    private static var createdProjectsCount: Int {
+        get { UserDefaults.standard.integer(forKey: projectCountKey) }
+        set { UserDefaults.standard.set(newValue, forKey: projectCountKey) }
+    }
+    
     struct ImportedMedia: Equatable {
         let asset: AssetIdentifier
         let durationSeconds: Double?
@@ -21,31 +35,31 @@ enum ProjectFactory {
     }
 
     static func makeNewProject(
-        name: String = "New Project",
+        name: String = Self.newProjectName,
         importedMedia: [ImportedMedia]
     ) -> EditingProject {
         // Başlangıç: tek bir video track içine, sırayla yerleştir.
         // Audio import Landing'de yok; Editor içinde eklenecek.
         var timelineCursor: Double = 0
-        var clips: [VideoClip] = []
+        var clips: [MediaClip] = []
         clips.reserveCapacity(importedMedia.count)
 
         for item in importedMedia {
             switch item.asset.mediaType {
             case .image:
-                let clip = VideoClip(
+                let clip = MediaClip(
                     imageAsset: item.asset,
                     timelineOffset: timelineCursor,
-                    duration: VideoClip.defaultImageDuration
+                    duration: MediaClip.defaultImageDuration
                 )
                 clips.append(clip)
-                timelineCursor += VideoClip.defaultImageDuration
+                timelineCursor += MediaClip.defaultImageDuration
 
             case .video:
                 let duration = max(0, item.durationSeconds ?? 0)
                 let source = ClipTimeRange(startSeconds: 0, durationSeconds: duration)
                 let timeline = ClipTimeRange(startSeconds: timelineCursor, durationSeconds: duration)
-                let clip = VideoClip(asset: item.asset, timelineRange: timeline, sourceRange: source)
+                let clip = MediaClip(asset: item.asset, timelineRange: timeline, sourceRange: source)
                 clips.append(clip)
                 timelineCursor += duration
 
@@ -54,8 +68,10 @@ enum ProjectFactory {
                 continue
             }
         }
-
-        let track = VideoTrack(trackType: .video, clips: clips)
+        // Increase created project count
+        createdProjectsCount += 1
+        // Create new project and return
+        let track = MediaTrack(trackType: .video, clips: clips)
         return EditingProject(name: name, tracks: [track])
     }
 }

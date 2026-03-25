@@ -8,7 +8,7 @@
 
 import Foundation
 
-struct FilterEffect: Codable, Equatable {
+nonisolated struct FilterEffect: Codable, Equatable {
 
     var filterType: FilterType
 

@@ -28,8 +28,7 @@ final class LandingViewModel {
 
     func didSelectProject(at index: Int) {
         guard projects.indices.contains(index) else { return }
-        // TODO: seçilen projeyi Editor'a enjekte et (Editor tarafı hazır olunca).
-        router.navigate(to: .editor, animated: true)
+        router.navigateToEditor(with: projects[index], animated: true)
     }
 
     /// Updates display name and `lastModifiedDate`. Ignores empty / whitespace-only names.

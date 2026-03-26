@@ -25,6 +25,9 @@ protocol RouterDelegate: AnyObject {
     func pop(animated: Bool)
     func dismiss(animated: Bool)
     func makeViewController(baseRoute route: Route) -> UIViewController  // Factory
+    /// Pushes the editor pre-loaded with a specific project. Prefer this over
+    /// `navigate(to: .editor)` because it properly injects the domain model.
+    func navigateToEditor(with project: EditingProject, animated: Bool)
 }
 
 @MainActor
@@ -55,6 +58,11 @@ class AppRouter: RouterDelegate {
         controller.dismiss(animated: animated)
     }
     
+    func navigateToEditor(with project: EditingProject, animated: Bool) {
+        let editorVC = EditorViewController(router: self, project: project)
+        controller.pushViewController(editorVC, animated: animated)
+    }
+
     // MARK: ViewController Factory
     // Single place responsible for creating ViewControllers and injecting the router.
     // Adding a new screen only requires a new Route case and an entry here.
@@ -63,7 +71,8 @@ class AppRouter: RouterDelegate {
             case .landing:
                 return LandingViewController(router: self)
             case .editor:
-                return EditorViewController(router: self)
+                // Fallback with an empty project; prefer navigateToEditor(with:animated:) for real use.
+                return EditorViewController(router: self, project: EditingProject(name: "New Project"))
             case .export:
                 return ExportViewController(router: self)
         }

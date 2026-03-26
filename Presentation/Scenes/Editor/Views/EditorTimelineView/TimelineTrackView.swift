@@ -62,6 +62,9 @@ final class TimelineTrackView: UIView {
 
     private var clipViews: [UIView] = []
     private var pixelsPerSecond: CGFloat = 80
+    private var currentTrack: MediaTrack?
+    private weak var selectedMediaView: TrackMediaView?
+    private var maxTrackDuration: Double = 0
 
     // MARK: - Init
 
@@ -84,9 +87,12 @@ final class TimelineTrackView: UIView {
     /// Pass `nil` to show an empty lane (e.g. no audio has been added yet).
     func configure(with track: MediaTrack?, pixelsPerSecond pxPerSec: CGFloat) {
         self.pixelsPerSecond = pxPerSec
+        self.currentTrack = track
+        self.maxTrackDuration = max(Double(bounds.width / max(pxPerSec, 1)), 0)
 
         clipViews.forEach { $0.removeFromSuperview() }
         clipViews.removeAll()
+        selectedMediaView = nil
 
         guard let track else { return }
 
@@ -101,77 +107,74 @@ final class TimelineTrackView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        maxTrackDuration = max(Double(bounds.width / max(pixelsPerSecond, 1)), 0)
         // Re-apply clip view heights whenever the track itself is resized.
-        clipViews.forEach { $0.frame.size.height = trackContentHeight }
+        clipViews.forEach {
+            guard let mediaView = $0 as? TrackMediaView else { return }
+            mediaView.updateTrackLimits(maxDuration: maxTrackDuration)
+            mediaView.frame.size.height = trackContentHeight
+        }
     }
 
     // MARK: - Private Helpers
 
-    private var trackContentHeight: CGFloat { bounds.height - 8 }
+    private var trackContentHeight: CGFloat { bounds.height }
 
     private func makeClipView(for clip: MediaClip, at index: Int) -> UIView {
         let xPos   = CGFloat(clip.timelineRange.startSeconds)    * pixelsPerSecond
         let width  = CGFloat(clip.timelineRange.durationSeconds) * pixelsPerSecond
         // Guard against 0-duration clips (e.g. freshly imported stills before user edits).
         let safeW  = max(width, 48)
-
-        let v = UIView(frame: CGRect(
+        let frame = CGRect(
             x:      xPos,
-            y:      4,
+            y:      0,
             width:  safeW,
             height: trackContentHeight
-        ))
-        v.backgroundColor    = kind.clipColor.withAlphaComponent(0.85)
-        v.layer.cornerRadius  = 8
-        v.layer.masksToBounds = true
-        // Tag carries the clip index so the tap handler can look up which clip was tapped.
-        v.tag = index
-        v.isUserInteractionEnabled = true
+        )
 
-        let tap = UITapGestureRecognizer(target: self, action: #selector(handleClipTap(_:)))
-        v.addGestureRecognizer(tap)
+        let mediaView = makeMediaView(for: clip, frame: frame)
+        mediaView.tag = index
+        mediaView.delegate = self
+        mediaView.updateTrackLimits(maxDuration: maxTrackDuration)
+        mediaView.setSelected(false)
+        mediaView.applyTimelineRange(clip.timelineRange)
 
-        if kind == .video {
-            v.layer.borderColor = UIColor.systemYellow.cgColor
-            v.layer.borderWidth = 2
-            addThumbnailStripes(to: v)
-        } else {
-            addAudioHighlight(to: v)
-        }
-
-        return v
+        return mediaView
     }
 
-    /// Decorative vertical stripe pattern that simulates thumbnail columns.
-    /// Replaced by real AVAssetImageGenerator thumbnails in a later phase.
-    private func addThumbnailStripes(to view: UIView) {
-        let stripeW:   CGFloat = 2
-        let stripeGap: CGFloat = 30
-        var x: CGFloat = stripeGap
-
-        while x < view.bounds.width - stripeW {
-            let stripe = UIView(frame: CGRect(x: x, y: 0, width: stripeW, height: view.bounds.height))
-            stripe.backgroundColor = UIColor.black.withAlphaComponent(0.18)
-            stripe.autoresizingMask = [.flexibleHeight]
-            stripe.isUserInteractionEnabled = false
-            view.addSubview(stripe)
-            x += stripeGap
+    private func makeMediaView(for clip: MediaClip, frame: CGRect) -> TrackMediaView {
+        switch clip.asset.mediaType {
+        case .video:
+            return VideoTrackMediaView(frame: frame, clip: clip, pixelsPerSecond: pixelsPerSecond)
+        case .audio:
+            return AudioTrackMediaView(frame: frame, clip: clip, pixelsPerSecond: pixelsPerSecond)
+        case .image:
+            // Image clips are represented as sticker-like visual blocks.
+            return StickerTrackMediaView(frame: frame, clip: clip, pixelsPerSecond: pixelsPerSecond)
         }
     }
+}
 
-    /// Semi-transparent white band at the top of the audio block for visual depth.
-    private func addAudioHighlight(to view: UIView) {
-        let highlight = UIView(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 6))
-        highlight.backgroundColor = UIColor.white.withAlphaComponent(0.25)
-        highlight.autoresizingMask = [.flexibleWidth]
-        highlight.isUserInteractionEnabled = false
-        view.addSubview(highlight)
+// MARK: - TrackMediaViewDelegate
+
+extension TimelineTrackView: TrackMediaViewDelegate {
+    func trackMediaViewDidToggleSelection(_ view: TrackMediaView) {
+        if selectedMediaView === view {
+            view.setSelected(false)
+            selectedMediaView = nil
+            return
+        }
+
+        selectedMediaView?.setSelected(false)
+        selectedMediaView = view
+        view.setSelected(true)
+        delegate?.trackView(self, didTapClipAt: view.tag)
     }
 
-    // MARK: - Tap Handler
-
-    @objc private func handleClipTap(_ gesture: UITapGestureRecognizer) {
-        guard let v = gesture.view else { return }
-        delegate?.trackView(self, didTapClipAt: v.tag)
+    func trackMediaView(_ view: TrackMediaView, didChangeTimelineRange range: ClipTimeRange) {
+        guard var track = currentTrack else { return }
+        guard track.clips.indices.contains(view.tag) else { return }
+        track.clips[view.tag].timelineRange = range
+        currentTrack = track
     }
 }

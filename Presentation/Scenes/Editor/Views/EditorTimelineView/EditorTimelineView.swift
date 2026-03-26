@@ -127,6 +127,7 @@ final class EditorTimelineView: UIView {
     /// Backing constraints for timeline width; replaced when project duration changes.
     private var rulerContentWidthConstraint: NSLayoutConstraint?
     private var tracksContentWidthConstraint: NSLayoutConstraint?
+    private var rulerHeightConstraint: NSLayoutConstraint?
 
     /// Runtime-created lanes (audio/video/overlay). Rebuilt on every configure call.
     private var dynamicTrackViews: [TimelineTrackView] = []
@@ -173,11 +174,13 @@ final class EditorTimelineView: UIView {
 
     private func setupRulerScrollView() {
         addSubview(rulerScrollView)
+        let heightConstraint = rulerScrollView.heightAnchor.constraint(equalToConstant: Layout.rulerHeight)
+        rulerHeightConstraint = heightConstraint
         NSLayoutConstraint.activate([
             rulerScrollView.topAnchor.constraint(equalTo: topAnchor),
             rulerScrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             rulerScrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            rulerScrollView.heightAnchor.constraint(equalToConstant: Layout.rulerHeight),
+            heightConstraint,
         ])
     }
 
@@ -313,6 +316,35 @@ final class EditorTimelineView: UIView {
         isSettingTimeExternally = false
     }
 
+    /// Expanded preview mode:
+    /// - hides ruler and gives that vertical area to track lanes
+    /// - focuses the bottom video lane as close to center as possible
+    func setExpandedPreviewMode(_ isExpanded: Bool, animated: Bool) {
+        rulerHeightConstraint?.constant = isExpanded ? 0 : Layout.rulerHeight
+        rulerScrollView.alpha = isExpanded ? 0 : 1
+        rulerScrollView.isUserInteractionEnabled = !isExpanded
+
+        let updates = {
+            self.layoutIfNeeded()
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.22, delay: 0, options: .curveEaseInOut, animations: updates)
+        } else {
+            updates()
+        }
+
+        if isExpanded {
+            focusVideoLaneNearCenter(animated: animated)
+        } else {
+            // Restore default vertical position for normal mode.
+            tracksScrollView.setContentOffset(
+                CGPoint(x: tracksScrollView.contentOffset.x, y: 0),
+                animated: animated
+            )
+        }
+    }
+
     // MARK: - Dynamic Tracks
 
     private func rebuildTrackViews(with tracks: [MediaTrack]) {
@@ -365,6 +397,24 @@ final class EditorTimelineView: UIView {
         tracksScrollView.alwaysBounceVertical = needsVerticalScroll
         tracksScrollView.showsVerticalScrollIndicator = needsVerticalScroll
     }
+
+    private func focusVideoLaneNearCenter(animated: Bool) {
+        guard let videoLane = dynamicTrackViews.last(where: { $0.kind == .video }) else { return }
+        layoutIfNeeded()
+
+        let frameInContent = tracksContentView.convert(videoLane.frame, from: tracksStackView)
+        let visibleHeight = tracksScrollView.bounds.height
+        guard visibleHeight > 0 else { return }
+
+        let preferredY = frameInContent.midY - (visibleHeight / 2)
+        let maxY = max(0, tracksScrollView.contentSize.height - visibleHeight)
+        let clampedY = min(max(preferredY, 0), maxY)
+
+        tracksScrollView.setContentOffset(
+            CGPoint(x: tracksScrollView.contentOffset.x, y: clampedY),
+            animated: animated
+        )
+    }
 }
 
 // MARK: - UIScrollViewDelegate
@@ -412,7 +462,9 @@ private extension MediaTrack {
         switch trackType {
         case .video: return .video
         case .audio: return .audio
-        case .overlay: return .video
+        case .overlay:
+            // Non-video lanes (sticker/filter/overlay proxies) stay compact like audio lanes.
+            return .audio
         }
     }
 }

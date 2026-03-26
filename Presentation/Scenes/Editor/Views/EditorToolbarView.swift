@@ -35,7 +35,7 @@ final class EditorToolbarView: UIView {
 
     private lazy var separatorView: UIView = {
         let v = UIView()
-        v.backgroundColor = .separator
+        v.backgroundColor = .systemGray5
         v.translatesAutoresizingMaskIntoConstraints = false
         return v
     }()
@@ -175,7 +175,7 @@ final class EditorToolbarView: UIView {
     func setPlaying(_ playing: Bool) {
         isPlaying = playing
         let imageName = playing ? "pause.fill" : "play.fill"
-        let symConfig = UIImage.SymbolConfiguration(pointSize: 24, weight: .medium)
+        let symConfig = UIImage.SymbolConfiguration(pointSize: 15, weight: .medium)
         var config = playPauseButton.configuration
         config?.image = UIImage(systemName: imageName, withConfiguration: symConfig)
         playPauseButton.configuration = config

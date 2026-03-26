@@ -29,6 +29,7 @@ final class EditorViewController: UIViewController {
 
     private let router:  RouterDelegate
     private let project: EditingProject
+    private var workingTracks: [MediaTrack]
 
     // MARK: - UI Components
 
@@ -43,12 +44,14 @@ final class EditorViewController: UIViewController {
     private let collapsedHeightRatio: CGFloat = 0.40
     private let expandedHeightRatio:  CGFloat = 0.65
     private var renderViewHeightConstraint: NSLayoutConstraint?
+    private var featuresHeightConstraint: NSLayoutConstraint?
 
     // MARK: - Init
 
     init(router: RouterDelegate, project: EditingProject) {
         self.router  = router
         self.project = project
+        self.workingTracks = project.tracks
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -117,18 +120,20 @@ final class EditorViewController: UIViewController {
             toolbarView.topAnchor.constraint(equalTo: renderView.bottomAnchor),
             toolbarView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             toolbarView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            toolbarView.heightAnchor.constraint(equalToConstant: 52),
+            toolbarView.heightAnchor.constraint(equalToConstant: 52.resp),
         ])
     }
 
     private func setupFeaturesView() {
         featuresView.delegate = self
         view.addSubview(featuresView)
+        let heightConstraint = featuresView.heightAnchor.constraint(equalToConstant: EditorFeaturesView.preferredHeight)
+        featuresHeightConstraint = heightConstraint
         NSLayoutConstraint.activate([
             featuresView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             featuresView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             featuresView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            featuresView.heightAnchor.constraint(equalToConstant: EditorFeaturesView.preferredHeight),
+            heightConstraint,
         ])
     }
 
@@ -147,10 +152,10 @@ final class EditorViewController: UIViewController {
     /// Seeds toolbar and timeline with the project’s initial state.
     private func applyInitialState() {
         toolbarView.setCurrentTime(formatTime(0))
-        toolbarView.setTotalDuration(formatTime(project.totalDuration.seconds))
+        toolbarView.setTotalDuration(formatTime(currentProjectSnapshot.totalDuration.seconds))
         toolbarView.setUndoEnabled(false)
         toolbarView.setRedoEnabled(false)
-        timelineView.configure(with: project)
+        timelineView.configure(with: currentProjectSnapshot)
     }
 
     // MARK: - Helpers
@@ -158,6 +163,23 @@ final class EditorViewController: UIViewController {
     private func formatTime(_ seconds: Double) -> String {
         let total = max(Int(seconds), 0)
         return String(format: "%02d:%02d", total / 60, total % 60)
+    }
+
+    private var currentProjectSnapshot: EditingProject {
+        EditingProject(
+            id: project.id,
+            name: project.name,
+            creationDate: project.creationDate,
+            lastModifiedDate: Date(),
+            tracks: workingTracks,
+            exportSettings: project.exportSettings
+        )
+    }
+
+    private func refreshTimeline() {
+        let snapshot = currentProjectSnapshot
+        toolbarView.setTotalDuration(formatTime(snapshot.totalDuration.seconds))
+        timelineView.configure(with: snapshot)
     }
 }
 
@@ -193,17 +215,23 @@ extension EditorViewController: EditorRenderViewDelegate {
         newConstraint.isActive = true
         renderViewHeightConstraint = newConstraint
 
+        featuresHeightConstraint?.constant = isExpanding ? 0 : EditorFeaturesView.preferredHeight
+        featuresView.alpha = isExpanding ? 0 : 1
+        featuresView.isUserInteractionEnabled = !isExpanding
+        if !isExpanding {
+            featuresView.showMainMenu(animated: false)
+        }
+
+        timelineView.setExpandedPreviewMode(isExpanding, animated: true)
         renderView.setExpanded(isExpanding)
 
         UIView.animate(
-            withDuration: 0.42,
+            withDuration: 1.0,
             delay: 0,
             usingSpringWithDamping: 0.82,
             initialSpringVelocity: 0.15,
-            options: [.curveEaseInOut, .allowUserInteraction]
-        ) {
-            self.view.layoutIfNeeded()
-        }
+            options: [.curveEaseInOut, .allowUserInteraction, .layoutSubviews]
+        ) { self.view.layoutIfNeeded() }
     }
 }
 
@@ -245,22 +273,7 @@ extension EditorViewController: EditorTimelineViewDelegate {
 extension EditorViewController: EditorFeaturesViewDelegate {
 
     func featuresView(_ view: EditorFeaturesView, didSelectItem item: FeatureItem) {
-        // Allow manual sub-menu preview from the main menu as well,
-        // so UI can be tested without selecting a timeline clip first.
-        guard !featuresView.isShowingSubMenu else {
-            // TODO: Route sub-menu actions by `item.id`.
-            return
-        }
-
-        switch item.id {
-        case "audio", "voice":
-            featuresView.showSubMenu(items: FeatureItem.subMenuItems(for: .audio), animated: true)
-        case "sticker":
-            featuresView.showSubMenu(items: FeatureItem.subMenuItems(for: .overlay), animated: true)
-        default:
-            // Video/image-centric tools: filters, adjust, effects, etc.
-            featuresView.showSubMenu(items: FeatureItem.subMenuItems(for: .video), animated: true)
-        }
+        print("Feature view didSelect item: \(item)")
     }
 
     func featuresViewDidTapBack(_ view: EditorFeaturesView) {

@@ -110,7 +110,7 @@ final class EditorFeaturesView: UIView {
 
     private lazy var separatorView: UIView = {
         let v = UIView()
-        v.backgroundColor = .separator
+        v.backgroundColor = .systemGray5
         v.translatesAutoresizingMaskIntoConstraints = false
         return v
     }()
@@ -213,7 +213,8 @@ final class EditorFeaturesView: UIView {
             separatorView.topAnchor.constraint(equalTo: topAnchor),
             separatorView.leadingAnchor.constraint(equalTo: leadingAnchor),
             separatorView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            separatorView.heightAnchor.constraint(equalToConstant: 0.5),
+            separatorView.heightAnchor.constraint(lessThanOrEqualToConstant: 0.5),
+//            separatorView.heightAnchor.constraint(equalToConstant: 0.5),
 
             mainScrollView.topAnchor.constraint(equalTo: separatorView.bottomAnchor),
             mainScrollView.leadingAnchor.constraint(equalTo: leadingAnchor),

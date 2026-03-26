@@ -90,7 +90,7 @@ final class EditorRenderView: UIView {
     // MARK: - Private Setup
 
     private func setupView() {
-        backgroundColor = .systemBackground
+        backgroundColor = .secondarySystemBackground
         translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(canvas)

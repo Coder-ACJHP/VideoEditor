@@ -50,6 +50,9 @@ struct TimelineConfiguration {
     var selectionHandleWidth: CGFloat = 20
     var selectionBorderWidth: CGFloat = 2
 
+    /// Tappable control at the trailing inner edge of a master-track clip (before the trim handle).
+    var masterTransitionAffordanceSize: CGFloat = 24
+
     // MARK: - Colors
 
     var selectionColor = UIColor(red: 0.82, green: 0.67, blue: 0.00, alpha: 1.0)

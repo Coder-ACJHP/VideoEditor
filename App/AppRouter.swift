@@ -37,7 +37,7 @@ class AppRouter: RouterDelegate {
     
     init(
         controller: UINavigationController,
-        thumbnailService: ThumbnailGenerating = LocalThumbnailService()
+        thumbnailService: ThumbnailGenerating
     ) {
         self.controller = controller
         self.thumbnailService = thumbnailService
@@ -64,9 +64,10 @@ class AppRouter: RouterDelegate {
     }
     
     func navigateToEditor(with project: EditingProject, animated: Bool) {
+        let viewModel = EditorViewModel(project: project)
         let editorVC = EditorViewController(
             router: self,
-            project: project,
+            viewModel: viewModel,
             thumbnailGenerator: thumbnailService
         )
         controller.pushViewController(editorVC, animated: animated)
@@ -81,9 +82,10 @@ class AppRouter: RouterDelegate {
                 return LandingViewController(router: self, thumbnailService: thumbnailService)
             case .editor:
                 // Fallback with an empty project; prefer navigateToEditor(with:animated:) for real use.
+                let viewModel = EditorViewModel(project: EditingProject(name: "New Project"))
                 return EditorViewController(
                     router: self,
-                    project: EditingProject(name: "New Project"),
+                    viewModel: viewModel,
                     thumbnailGenerator: thumbnailService
                 )
             case .export:

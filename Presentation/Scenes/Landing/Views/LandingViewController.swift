@@ -28,6 +28,7 @@ final class LandingViewController: UIViewController {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.titleLabel?.font = .preferredFont(forTextStyle: .title1)
         button.titleLabel?.adjustsFontForContentSizeCategory = true
+        button.accessibilityIdentifier = "landing.createProject"
         button.addTarget(self, action: #selector(createNewProjectTapped), for: .touchUpInside)
         return button
     }()
@@ -57,6 +58,7 @@ final class LandingViewController: UIViewController {
         let cv = UICollectionView(frame: .zero, collectionViewLayout: layout)
         cv.backgroundColor = .clear
         cv.translatesAutoresizingMaskIntoConstraints = false
+        cv.accessibilityIdentifier = "landing.projectList"
         cv.delegate = self
         cv.register(ProjectCell.self, forCellWithReuseIdentifier: ProjectCell.reuseIdentifier)
         return cv
@@ -334,7 +336,11 @@ final class LandingViewController: UIViewController {
 
     private func presentGalleryPicker() {
         var config = PHPickerConfiguration(photoLibrary: .shared())
-        config.selectionLimit = 0
+        if ProcessInfo.processInfo.arguments.contains("-uitesting-picker-limit-3") {
+            config.selectionLimit = 3
+        } else {
+            config.selectionLimit = 0
+        }
         config.filter = .any(of: [.images, .videos])
 
         let picker = PHPickerViewController(configuration: config)

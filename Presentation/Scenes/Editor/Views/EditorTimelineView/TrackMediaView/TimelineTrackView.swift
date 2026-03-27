@@ -16,8 +16,8 @@
 //     rightmost clip end.
 //  4) Non-master tracks do not control shrink. They resolve overlaps locally
 //     and only request timeline extension when needed.
-//  5) Left-trim on master track enforces contiguity live during the gesture;
-//     only the clip's width changes while contiguity sets its position.
+//  5) Master-track contiguity is computed in Domain (`TimelineArranging`); this view
+//     applies the resulting `timelineRange` values to frames.
 //
 
 import UIKit
@@ -51,18 +51,24 @@ final class TimelineTrackView: UIView {
     // MARK: - Private
 
     private var clipViews: [UIView] = []
-    private var pixelsPerSecond: CGFloat = 80
+    private var layout: TimelineLayoutProvider = TimelineConfiguration.default.timelineLayout
     private var currentTrack: MediaTrack?
     private var maxTrackDuration: Double = 0
     private var durationLimitOverride: Double?
     private let thumbnailGenerator: ThumbnailGenerating
+    private let timelineArranger: TimelineArranging
     private weak var selectedMediaView: TrackMediaView?
 
     // MARK: - Init
 
-    init(trackType: MediaTrack.TrackType, thumbnailGenerator: ThumbnailGenerating) {
+    init(
+        trackType: MediaTrack.TrackType,
+        thumbnailGenerator: ThumbnailGenerating,
+        timelineArranger: TimelineArranging = MasterTrackTimelineArranger()
+    ) {
         self.trackType = trackType
         self.thumbnailGenerator = thumbnailGenerator
+        self.timelineArranger = timelineArranger
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = TimelineConfiguration.default.trackLaneBackgroundColor
@@ -88,21 +94,21 @@ final class TimelineTrackView: UIView {
     func updateDurationLimit(_ limit: Double?) {
         durationLimitOverride = limit
         let ceiling = effectiveTrackDurationLimit
-        let maxPx = CGFloat(ceiling) * pixelsPerSecond
+        let maxPx = layout.xPosition(forSeconds: ceiling)
 
         for view in clipViews.compactMap({ $0 as? TrackMediaView }) {
             view.updateTrackLimits(maxDuration: ceiling)
             guard view.frame.maxX > maxPx else { continue }
 
             let clampedWidth = max(maxPx - view.frame.origin.x, 0)
-            let minW = CGFloat(TimelineConfiguration.default.minClipDuration) * pixelsPerSecond
+            let minW = layout.width(forDurationSeconds: TimelineConfiguration.default.minClipDuration)
             guard clampedWidth >= minW else { continue }
 
             view.frame.size.width = clampedWidth
 
-            let duration = Double(clampedWidth / pixelsPerSecond)
+            let duration = layout.seconds(forXPosition: clampedWidth)
             let range = ClipTimeRange(
-                startSeconds: Double(view.frame.origin.x / pixelsPerSecond),
+                startSeconds: layout.seconds(forXPosition: view.frame.origin.x),
                 durationSeconds: duration
             )
             view.applyTimelineRange(range)
@@ -123,13 +129,13 @@ final class TimelineTrackView: UIView {
 
     func configure(
         with track: MediaTrack?,
-        pixelsPerSecond pxPerSec: CGFloat,
+        layout: TimelineLayoutProvider,
         durationLimitOverride: Double? = nil
     ) {
-        self.pixelsPerSecond = pxPerSec
+        self.layout = layout
         self.currentTrack = track
         self.durationLimitOverride = durationLimitOverride
-        self.maxTrackDuration = max(Double(bounds.width / max(pxPerSec, 1)), 0)
+        self.maxTrackDuration = layout.durationSeconds(forContentWidth: bounds.width)
 
         clipViews.forEach { $0.removeFromSuperview() }
         clipViews.removeAll()
@@ -148,11 +154,21 @@ final class TimelineTrackView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        maxTrackDuration = max(Double(bounds.width / max(pixelsPerSecond, 1)), 0)
+        maxTrackDuration = layout.durationSeconds(forContentWidth: bounds.width)
         clipViews.forEach {
             guard let mediaView = $0 as? TrackMediaView else { return }
             mediaView.updateTrackLimits(maxDuration: effectiveTrackDurationLimit)
             mediaView.frame.size.height = trackContentHeight
+        }
+
+        // Earlier master clips draw above later ones so the transition chip (centered on the seam) stays visible over the next clip.
+        if trackType == .video {
+            let n = clipViews.count
+            for (i, v) in clipViews.enumerated() {
+                v.layer.zPosition = CGFloat(n - 1 - i)
+            }
+        } else {
+            clipViews.forEach { $0.layer.zPosition = 0 }
         }
     }
 
@@ -162,8 +178,8 @@ final class TimelineTrackView: UIView {
     private var effectiveTrackDurationLimit: Double { durationLimitOverride ?? maxTrackDuration }
 
     private func makeClipView(for clip: MediaClip, at index: Int) -> UIView {
-        let xPos   = CGFloat(clip.timelineRange.startSeconds)    * pixelsPerSecond
-        let width  = CGFloat(clip.timelineRange.durationSeconds) * pixelsPerSecond
+        let xPos  = layout.xPosition(forSeconds: clip.timelineRange.startSeconds)
+        let width = layout.width(forDurationSeconds: clip.timelineRange.durationSeconds)
         let safeW  = max(width, 48)
         let frame = CGRect(
             x:      xPos,
@@ -176,6 +192,11 @@ final class TimelineTrackView: UIView {
         mediaView.tag = index
         mediaView.delegate = self
         mediaView.isMasterTrack = (trackType == .video)
+        let clipCount = currentTrack?.clips.count ?? 0
+        let hasFollowingClip = index < clipCount - 1
+        let isVisualMasterClip = trackType == .video
+            && (clip.asset.mediaType == .video || clip.asset.mediaType == .image)
+        mediaView.showsMasterTransitionAffordance = isVisualMasterClip && hasFollowingClip
         mediaView.updateTrackLimits(maxDuration: effectiveTrackDurationLimit)
         mediaView.setSelected(false)
         mediaView.applyTimelineRange(clip.timelineRange)
@@ -189,20 +210,20 @@ final class TimelineTrackView: UIView {
             return VideoTrackMediaView(
                 frame: frame,
                 clip: clip,
-                pixelsPerSecond: pixelsPerSecond,
+                layout: layout,
                 thumbnailGenerator: thumbnailGenerator
             )
         case .audio:
             return AudioTrackMediaView(
                 frame: frame,
                 clip: clip,
-                pixelsPerSecond: pixelsPerSecond
+                layout: layout
             )
         case .image:
             return ImageTrackMediaView(
                 frame: frame,
                 clip: clip,
-                pixelsPerSecond: pixelsPerSecond,
+                layout: layout,
                 thumbnailGenerator: thumbnailGenerator
             )
         }
@@ -229,6 +250,49 @@ extension TimelineTrackView: TrackMediaViewDelegate {
         delegate?.trackView(self, didTapClipAt: view.tag, mediaType: mediaType)
     }
 
+    func trackMediaViewDidTapTransitionAffordance(_ view: TrackMediaView) {
+        guard trackType == .video else { return }
+        guard var track = currentTrack else { return }
+        guard track.clips.indices.contains(view.tag) else { return }
+        guard view.tag < track.clips.count - 1 else { return }
+
+        let clipIndex = view.tag
+        guard let host = view.enclosingViewController() else { return }
+
+        let current = track.clips[clipIndex].transitionOut
+        let alert = UIAlertController(
+            title: "Transition",
+            message: "Applied between this clip and the next.",
+            preferredStyle: .actionSheet
+        )
+
+        if let pop = alert.popoverPresentationController {
+            pop.sourceView = view
+            let s = TimelineConfiguration.default.masterTransitionAffordanceSize
+            let cx = view.bounds.width
+            pop.sourceRect = CGRect(x: cx - s / 2, y: view.bounds.midY - s / 2, width: s, height: s)
+            pop.permittedArrowDirections = [.up, .down]
+        }
+
+        if current != nil {
+            alert.addAction(UIAlertAction(title: "Remove transition", style: .destructive) { [weak self] _ in
+                self?.applyTransitionOut(nil, forClipAt: clipIndex, mediaView: view)
+            })
+        }
+
+        for transitionType in ClipTransition.TransitionType.allCases {
+            let title = Self.displayTitle(for: transitionType)
+            alert.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
+                let next = ClipTransition(type: transitionType, durationSeconds: ClipTransition.default.durationSeconds)
+                self?.applyTransitionOut(next, forClipAt: clipIndex, mediaView: view)
+            })
+        }
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        host.present(alert, animated: true)
+    }
+
     func trackMediaView(_ view: TrackMediaView, didChangeTimelineRange range: ClipTimeRange, sourceRange: ClipTimeRange, allowExtension: Bool) {
         guard var track = currentTrack else { return }
         guard track.clips.indices.contains(view.tag) else { return }
@@ -238,7 +302,7 @@ extension TimelineTrackView: TrackMediaViewDelegate {
 
         if trackType == .video {
             if allowExtension {
-                enforceContiguity(editedView: view)
+                applyMasterTrackContiguityFromDomain()
                 requestTimelineResizeIfNeeded()
             }
         } else {
@@ -251,36 +315,42 @@ extension TimelineTrackView: TrackMediaViewDelegate {
         notifyTrackUpdated()
     }
 
-    // MARK: - Master Track Contiguity
+    // MARK: - Master Track Contiguity (Domain)
 
-    /// Keeps all clips on the master (video) track touching edge-to-edge
-    /// with no gaps. The first clip always starts at 0.
-    private func enforceContiguity(editedView: TrackMediaView) {
-        let mediaViews = clipViews.compactMap { $0 as? TrackMediaView }
-        guard !mediaViews.isEmpty else { return }
-        let sorted = mediaViews.sorted { $0.tag < $1.tag }
+    /// Runs `TimelineArranging` on the current model, then syncs clip views from `timelineRange`.
+    private func applyMasterTrackContiguityFromDomain() {
+        guard var track = currentTrack else { return }
+        track.clips = timelineArranger.enforceMasterTrackContiguity(clips: track.clips)
+        currentTrack = track
+        applyMasterTrackClipViewsFromModel()
+    }
 
-        if sorted[0].frame.origin.x != 0 {
-            sorted[0].frame.origin.x = 0
-            updateClipRange(for: sorted[0])
-        }
+    private func applyMasterTrackClipViewsFromModel() {
+        guard let track = currentTrack else { return }
+        for index in track.clips.indices {
+            guard index < clipViews.count,
+                  let view = clipViews[index] as? TrackMediaView
+            else { continue }
 
-        for i in 1 ..< sorted.count {
-            let expectedX = sorted[i - 1].frame.maxX
-            if sorted[i].frame.origin.x != expectedX {
-                sorted[i].frame.origin.x = expectedX
-                updateClipRange(for: sorted[i])
-            }
+            let clip = track.clips[index]
+            let x = layout.xPosition(forSeconds: clip.timelineRange.startSeconds)
+            let w = layout.width(forDurationSeconds: clip.timelineRange.durationSeconds)
+            let safeW = max(w, 48)
+
+            view.frame.origin.x = x
+            view.frame.size.width = safeW
+            view.applyTimelineRange(clip.timelineRange)
         }
     }
 
-    /// For the master track: extends OR shrinks the timeline to match the total clip duration.
+    /// For the master track: extends OR shrinks the timeline to match the arranged model end.
     private func requestTimelineResizeIfNeeded() {
-        let mediaViews = clipViews.compactMap { $0 as? TrackMediaView }
-        guard let maxEndPx = mediaViews.map({ $0.frame.maxX }).max() else { return }
+        guard let track = currentTrack, trackType == .video, !track.clips.isEmpty else { return }
 
+        let maxEndSeconds = track.clips.map(\.timelineRange.endSeconds).max() ?? 0
+        let maxEndPx = layout.xPosition(forSeconds: maxEndSeconds)
         let currentWidthPx = bounds.width
-        let newDuration = Double(maxEndPx / pixelsPerSecond)
+        let newDuration = maxEndSeconds
 
         if maxEndPx > currentWidthPx {
             delegate?.trackView(self, didRequestTimelineExtensionTo: newDuration)
@@ -330,8 +400,8 @@ extension TimelineTrackView: TrackMediaViewDelegate {
 
     /// Syncs a pushed clip's frame back into its model range.
     private func updateClipRange(for view: TrackMediaView) {
-        let newStart  = Double(view.frame.origin.x / pixelsPerSecond)
-        let duration  = Double(view.frame.width / pixelsPerSecond)
+        let newStart = layout.seconds(forXPosition: view.frame.origin.x)
+        let duration = layout.seconds(forXPosition: view.frame.width)
         let range = ClipTimeRange(startSeconds: newStart, durationSeconds: duration)
         view.applyTimelineRange(range)
 
@@ -349,12 +419,43 @@ extension TimelineTrackView: TrackMediaViewDelegate {
         let currentWidthPx = bounds.width
         guard maxEndPx > currentWidthPx else { return }
 
-        let newDuration = Double(maxEndPx / pixelsPerSecond)
+        let newDuration = layout.seconds(forXPosition: maxEndPx)
         delegate?.trackView(self, didRequestTimelineExtensionTo: newDuration)
     }
 
     private func notifyTrackUpdated() {
         guard let track = currentTrack else { return }
         delegate?.trackView(self, didUpdateTrack: track)
+    }
+
+    private func applyTransitionOut(_ transition: ClipTransition?, forClipAt index: Int, mediaView: TrackMediaView) {
+        guard var track = currentTrack else { return }
+        guard track.clips.indices.contains(index) else { return }
+        track.clips[index].transitionOut = transition
+        currentTrack = track
+        mediaView.applyTransitionOut(transition)
+        notifyTrackUpdated()
+    }
+
+    private static func displayTitle(for type: ClipTransition.TransitionType) -> String {
+        switch type {
+        case .crossDissolve: return "Cross dissolve"
+        case .fadeToBlack: return "Fade to black"
+        case .push: return "Push"
+        case .slide: return "Slide"
+        }
+    }
+}
+
+// MARK: - Responder chain (transition sheet presentation)
+
+private extension UIView {
+    func enclosingViewController() -> UIViewController? {
+        var responder: UIResponder? = self
+        while let current = responder {
+            if let vc = current as? UIViewController { return vc }
+            responder = current.next
+        }
+        return nil
     }
 }

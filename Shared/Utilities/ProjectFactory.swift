@@ -34,6 +34,11 @@ enum ProjectFactory {
         }
     }
 
+    /// Clears the auto-increment used by `newProjectName` so UI tests get predictable titles.
+    static func resetProjectNameCounterForUITesting() {
+        UserDefaults.standard.removeObject(forKey: projectCountKey)
+    }
+
     static func makeNewProject(
         name: String = Self.newProjectName,
         importedMedia: [ImportedMedia]

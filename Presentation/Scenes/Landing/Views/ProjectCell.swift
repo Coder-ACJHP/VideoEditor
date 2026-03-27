@@ -170,10 +170,9 @@ final class ProjectCell: UICollectionViewCell {
             // Defer size resolution until layout has occurred; fall back to a
             // reasonable default if the cell hasn't been laid out yet.
             let bounds = thumbnailImageView.bounds
-            let scale  = UIScreen.main.scale
             let size   = bounds.width > 0
-                ? CGSize(width: bounds.width * scale, height: bounds.height * scale)
-                : CGSize(width: 900, height: 900)
+                ? CGSize(width: bounds.width, height: bounds.height)
+                : CGSize(width: 300, height: 300)
 
             let image = await service.thumbnail(for: asset, size: size)
             guard !Task.isCancelled else { return }

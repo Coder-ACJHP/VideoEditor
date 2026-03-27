@@ -2,141 +2,201 @@
 //  LocalThumbnailService.swift
 //  VideoEditor
 //
-//  Concrete ThumbnailGenerating implementation for locally stored assets.
-//
-//  Strategy
-//  ────────
-//  • Images  → CGImageSource downsample (avoids full-res decode).
-//  • Videos  → AVAssetImageGenerator, applying preferred track transform.
-//  • PHAsset cases are not yet supported (return nil until PHImageManager integration).
-//
-//  Caching
-//  ───────
-//  NSCache keyed on "<assetKey>@<WxH>" (representative) or
-//  "<assetKey>@<t>s-<WxH>" (time-based) so identical requests are served
-//  from memory. The cache is per-instance; sharing one instance across
-//  screens gives cross-screen reuse.
-//
-//  Thread Safety
-//  ─────────────
-//  NSCache is thread-safe. All heavy work is dispatched to a dedicated
-//  serial queue to prevent saturating the UI thread.
 
 import AVFoundation
 import UIKit
+import ImageIO
 
-final class LocalThumbnailService: ThumbnailGenerating {
+// MARK: - Per-URL serial decode
 
-    // MARK: - Private
+/// `AVAssetImageGenerator` is not safe for concurrent use. One actor per file serializes all
+/// `image(at:)` work for that URL so parallel `Task`s cannot overlap on the same generator.
+private actor VideoThumbnailPipeline {
 
-    private let cache = NSCache<NSString, UIImage>()
-    private let workQueue = DispatchQueue(label: "com.videoeditor.thumbnail", qos: .userInitiated)
+    private let url: URL
+    private var generator: AVAssetImageGenerator?
 
-    // MARK: - ThumbnailGenerating
+    init(url: URL) {
+        self.url = url
+    }
 
-    func thumbnail(for asset: AssetIdentifier, size: CGSize) async -> UIImage? {
-        let key = cacheKey(for: asset, size: size) as NSString
-        if let cached = cache.object(forKey: key) { return cached }
-
-        let image: UIImage? = switch asset {
-        case .image(let url):              await loadDownsampledImage(from: url, targetSize: size)
-        case .video(let url):              await generateVideoFrame(from: url, at: 0, size: size)
-        case .audio:                       nil
-        case .phAssetVideo, .phAssetImage: nil
+    func decodeFrame(
+        at seconds: Double,
+        sizePoints: CGSize,
+        screenScale: CGFloat,
+        maxPixelLongEdge: CGFloat
+    ) async -> UIImage? {
+        let gen: AVAssetImageGenerator
+        if let existing = generator {
+            gen = existing
+        } else {
+            let asset = AVURLAsset(url: url)
+            let g = AVAssetImageGenerator(asset: asset)
+            g.appliesPreferredTrackTransform = true
+            generator = g
+            gen = g
         }
 
-        if let image { cache.setObject(image, forKey: key) }
+        // Keyframe-aligned: much lower CPU than sample-accurate seeks.
+        gen.requestedTimeToleranceBefore = .positiveInfinity
+        gen.requestedTimeToleranceAfter = .positiveInfinity
+
+        var w = max(1, sizePoints.width * screenScale)
+        var h = max(1, sizePoints.height * screenScale)
+        let longEdge = max(w, h)
+        let cap = max(32, maxPixelLongEdge)
+        if longEdge > cap {
+            let r = cap / longEdge
+            w = max(1, floor(w * r))
+            h = max(1, floor(h * r))
+        }
+        gen.maximumSize = CGSize(width: w, height: h)
+
+        let time = CMTime(seconds: seconds, preferredTimescale: 600)
+        do {
+            let (cgImage, _) = try await gen.image(at: time)
+            return autoreleasepool {
+                UIImage(cgImage: cgImage)
+            }
+        } catch {
+            return nil
+        }
+    }
+}
+
+// MARK: - Service
+
+final actor LocalThumbnailService: ThumbnailGenerating {
+
+    // MARK: - Private Properties
+
+    /// `NSCache` is thread-safe. With `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, keeping this
+    /// actor-isolated would make UIImage-backed cache access cross isolation incorrectly; `unsafe`
+    /// documents that we rely on NSCache’s own synchronization instead of the actor for this field.
+    nonisolated(unsafe) private let cache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 60
+        cache.totalCostLimit = 24 * 1024 * 1024
+        return cache
+    }()
+
+    private var pipelines: [URL: VideoThumbnailPipeline] = [:]
+
+    // MARK: - Public Interface
+
+    func thumbnail(for asset: AssetIdentifier, size: CGSize) async -> UIImage? {
+        let key = cacheKey(for: asset, size: size)
+
+        if let cached = cache.object(forKey: key as NSString) {
+            return cached
+        }
+
+        let image: UIImage?
+        switch asset {
+        case .image(let url):
+            image = await loadDownsampledImage(from: url, targetSize: size)
+        case .video(let url):
+            let scale = await MainActor.run { UIScreen.main.scale }
+            let requested = max(size.width, size.height) * scale
+            let cap = min(480, max(requested, 1))
+            image = await pipeline(for: url).decodeFrame(
+                at: 0,
+                sizePoints: size,
+                screenScale: scale,
+                maxPixelLongEdge: cap
+            )
+        default:
+            image = nil
+        }
+
+        if let image {
+            storeInCache(image, key: key as NSString)
+        }
         return image
     }
 
     func videoFrame(for asset: AssetIdentifier, at seconds: Double, size: CGSize) async -> UIImage? {
         guard case .video(let url) = asset else { return nil }
 
-        let key = frameCacheKey(for: asset, seconds: seconds, size: size) as NSString
-        if let cached = cache.object(forKey: key) { return cached }
+        let key = frameCacheKey(for: asset, seconds: seconds, size: size)
+        if let cached = cache.object(forKey: key as NSString) {
+            return cached
+        }
 
-        let image = await generateVideoFrame(from: url, at: seconds, size: size)
-        if let image { cache.setObject(image, forKey: key) }
+        let scale = await MainActor.run { UIScreen.main.scale }
+        let image = await pipeline(for: url).decodeFrame(
+            at: seconds,
+            sizePoints: size,
+            screenScale: scale,
+            maxPixelLongEdge: 144
+        )
+
+        if let image {
+            storeInCache(image, key: key as NSString)
+        }
         return image
     }
 
-    // MARK: - Private Helpers
+    // MARK: - Private Logic
+
+    private func pipeline(for url: URL) -> VideoThumbnailPipeline {
+        if let existing = pipelines[url] {
+            return existing
+        }
+        let pipe = VideoThumbnailPipeline(url: url)
+        pipelines[url] = pipe
+        return pipe
+    }
+
+    private nonisolated func approximateByteCost(for image: UIImage) -> Int {
+        if let cg = image.cgImage {
+            return max(cg.bytesPerRow * cg.height, 8192)
+        }
+        let w = max(Int(image.size.width * image.scale), 1)
+        let h = max(Int(image.size.height * image.scale), 1)
+        return w * h * 4
+    }
+
+    private nonisolated func storeInCache(_ image: UIImage, key: NSString) {
+        cache.setObject(image, forKey: key, cost: approximateByteCost(for: image))
+    }
+
+    /// `targetSize` is in points; one scale hop for pixel budget.
+    private func loadDownsampledImage(from url: URL, targetSize: CGSize) async -> UIImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+
+        let scale = await MainActor.run { UIScreen.main.scale }
+        let maxDimension = max(targetSize.width, targetSize.height) * scale
+
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceShouldCacheImmediately: false,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxDimension
+        ]
+
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return nil
+        }
+        return autoreleasepool {
+            UIImage(cgImage: cgImage)
+        }
+    }
+
+    // MARK: - Key Helpers
 
     private func assetKeyPart(_ asset: AssetIdentifier) -> String {
         switch asset {
-        case .image(let url), .video(let url), .audio(let url):
-            return url.absoluteString
-        case .phAssetVideo(let id), .phAssetImage(let id):
-            return id
+        case .image(let url), .video(let url), .audio(let url): return url.path
+        case .phAssetVideo(let id), .phAssetImage(let id): return id
         }
     }
 
     private func cacheKey(for asset: AssetIdentifier, size: CGSize) -> String {
-        "\(assetKeyPart(asset))@\(Int(size.width))x\(Int(size.height))"
+        "\(assetKeyPart(asset))_\(Int(size.width))x\(Int(size.height))"
     }
 
     private func frameCacheKey(for asset: AssetIdentifier, seconds: Double, size: CGSize) -> String {
-        "\(assetKeyPart(asset))@\(String(format: "%.1f", seconds))s-\(Int(size.width))x\(Int(size.height))"
-    }
-
-    private func loadDownsampledImage(from url: URL, targetSize: CGSize) async -> UIImage? {
-        await withCheckedContinuation { continuation in
-            workQueue.async { [self] in
-                guard let data = try? Data(contentsOf: url) else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-                let scale = UIScreen.main.scale
-                let result = downsample(data: data, targetSize: targetSize, scale: scale)
-                continuation.resume(returning: result)
-            }
-        }
-    }
-
-    private func generateVideoFrame(from url: URL, at seconds: Double, size: CGSize) async -> UIImage? {
-        await withCheckedContinuation { continuation in
-            workQueue.async {
-                let asset = AVURLAsset(url: url)
-                let generator = AVAssetImageGenerator(asset: asset)
-                generator.appliesPreferredTrackTransform = true
-                generator.maximumSize = size
-
-                let time = CMTime(seconds: seconds, preferredTimescale: 600)
-                do {
-                    let cgImage = try generator.copyCGImage(at: time, actualTime: nil)
-                    continuation.resume(returning: UIImage(cgImage: cgImage))
-                } catch {
-                    continuation.resume(returning: nil)
-                }
-            }
-        }
-    }
-    
-    /// Creates a thumbnail-sized `UIImage` from raw data using `CGImageSource`,
-    /// avoiding a full-resolution decode.
-    private nonisolated func downsample(data: Data, targetSize: CGSize, scale: CGFloat) -> UIImage? {
-        
-        let options: [CFString: Any] = [
-            kCGImageSourceShouldCache: false
-        ]
-        
-        guard let source = CGImageSourceCreateWithData(data as CFData, options as CFDictionary) else {
-            return nil
-        }
-        
-        let maxDimension = max(targetSize.width, targetSize.height) * scale
-        
-        let downsampleOptions: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxDimension
-        ]
-        
-        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(
-            source, 0, downsampleOptions as CFDictionary
-        ) else { return nil }
-        
-        return UIImage(cgImage: cgImage)
+        "\(assetKeyPart(asset))_\(String(format: "%.2f", seconds))_\(Int(size.width))x\(Int(size.height))"
     }
 }

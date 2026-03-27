@@ -11,9 +11,9 @@ final class StickerTrackMediaView: TrackMediaView {
     private let thumbnailGenerator: ThumbnailGenerating
     private let stickerImageView = UIImageView()
 
-    init(frame: CGRect, clip: MediaClip, pixelsPerSecond: CGFloat, thumbnailGenerator: ThumbnailGenerating) {
+    init(frame: CGRect, clip: MediaClip, layout: TimelineLayoutProvider, thumbnailGenerator: ThumbnailGenerating) {
         self.thumbnailGenerator = thumbnailGenerator
-        super.init(frame: frame, clip: clip, pixelsPerSecond: pixelsPerSecond)
+        super.init(frame: frame, clip: clip, layout: layout)
     }
 
     required init?(coder: NSCoder) {
@@ -41,9 +41,8 @@ final class StickerTrackMediaView: TrackMediaView {
     private func loadStickerImage() {
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let size = contentView.bounds.height > 0 ? contentView.bounds.height : 36
-            let scale = UIScreen.main.scale
-            let requestSize = CGSize(width: size * scale, height: size * scale)
+            let side = contentView.bounds.height > 0 ? contentView.bounds.height : 36
+            let requestSize = CGSize(width: side, height: side)
 
             let image = await thumbnailGenerator.thumbnail(for: clip.asset, size: requestSize)
             guard !Task.isCancelled else { return }

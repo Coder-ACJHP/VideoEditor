@@ -6,7 +6,16 @@
 import UIKit
 
 final class AudioTrackMediaView: TrackMediaView {
+
     private let barsContainer = UIStackView()
+
+    override init(frame: CGRect, clip: MediaClip, layout: TimelineLayoutProvider) {
+        super.init(frame: frame, clip: clip, layout: layout)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     override func setupMediaContent() {
         contentView.backgroundColor = TimelineConfiguration.default.audioTrackColor

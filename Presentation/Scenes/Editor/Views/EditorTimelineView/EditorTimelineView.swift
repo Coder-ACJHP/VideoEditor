@@ -54,6 +54,7 @@ protocol EditorTimelineViewDelegate: AnyObject {
 final class EditorTimelineView: UIView {
 
     private var config: TimelineConfiguration { .default }
+    private var timelineLayout: TimelineLayoutProvider { config.timelineLayout }
 
     /// The total pixel height the timeline occupies.
     /// Expose as a static constant so EditorViewController can set a matching constraint.
@@ -209,7 +210,7 @@ final class EditorTimelineView: UIView {
     private func setupRulerContentView() {
         rulerScrollView.addSubview(rulerContentView)
 
-        let initialWidth = CGFloat(config.minimumProjectDuration) * config.pixelsPerSecond + (config.horizontalEdgePadding * 2)
+        let initialWidth = timelineLayout.xPosition(forSeconds: config.minimumProjectDuration) + (config.horizontalEdgePadding * 2)
         let widthConstraint = rulerContentView.widthAnchor.constraint(equalToConstant: initialWidth)
         rulerContentWidthConstraint = widthConstraint
 
@@ -226,7 +227,7 @@ final class EditorTimelineView: UIView {
     private func setupTracksContentView() {
         tracksScrollView.addSubview(tracksContentView)
 
-        let initialWidth = CGFloat(config.minimumProjectDuration) * config.pixelsPerSecond
+        let initialWidth = timelineLayout.xPosition(forSeconds: config.minimumProjectDuration)
         let widthConstraint = tracksContentView.widthAnchor.constraint(equalToConstant: initialWidth)
         tracksContentWidthConstraint = widthConstraint
 
@@ -241,7 +242,7 @@ final class EditorTimelineView: UIView {
     }
 
     private func setupRuler() {
-        rulerView.pixelsPerSecond = config.pixelsPerSecond
+        rulerView.layout = config.timelineLayout
         rulerContentView.addSubview(rulerView)
         NSLayoutConstraint.activate([
             rulerView.topAnchor.constraint(equalTo: rulerContentView.topAnchor),
@@ -301,7 +302,7 @@ final class EditorTimelineView: UIView {
     func configure(with project: EditingProject) {
         currentTracks = project.tracks
         let duration = max(project.totalDuration.seconds, config.minimumProjectDuration)
-        let tracksTimelineWidth = CGFloat(duration) * config.pixelsPerSecond
+        let tracksTimelineWidth = timelineLayout.xPosition(forSeconds: duration)
         let rulerTimelineWidth = tracksTimelineWidth + (config.horizontalEdgePadding * 2)
         rulerContentWidthConstraint?.constant = rulerTimelineWidth
         tracksContentWidthConstraint?.constant = tracksTimelineWidth
@@ -318,7 +319,7 @@ final class EditorTimelineView: UIView {
     func setCurrentTime(_ seconds: Double) {
         let half = tracksScrollView.contentInset.left
         guard half > 0 else { return }
-        let x = CGFloat(seconds) * config.pixelsPerSecond - half
+        let x = timelineLayout.xPosition(forSeconds: seconds) - half
         isSettingTimeExternally = true
         let y = tracksScrollView.contentOffset.y
         let offset = CGPoint(x: x, y: y)
@@ -407,7 +408,7 @@ final class EditorTimelineView: UIView {
             let durationLimit: Double? = (trackType == .video) ? nil : masterTrackDuration
             lane.configure(
                 with: model,
-                pixelsPerSecond: config.pixelsPerSecond,
+                layout: config.timelineLayout,
                 durationLimitOverride: durationLimit
             )
             tracksStackView.addArrangedSubview(lane)
@@ -464,7 +465,7 @@ extension EditorTimelineView: UIScrollViewDelegate {
 
         // contentOffset.x == -contentInset.left  →  time 0 is under the playhead.
         let rawOffset = tracksScrollView.contentOffset.x + tracksScrollView.contentInset.left
-        let time = max(Double(rawOffset / config.pixelsPerSecond), 0)
+        let time = max(timelineLayout.seconds(forXPosition: rawOffset), 0)
         delegate?.timelineView(self, didScrubToTime: time)
     }
 }
@@ -540,7 +541,7 @@ extension EditorTimelineView: TimelineTrackViewDelegate {
     }
 
     private func resizeTimeline(to duration: Double) {
-        let tracksWidth = CGFloat(duration) * config.pixelsPerSecond
+        let tracksWidth = timelineLayout.xPosition(forSeconds: duration)
         let rulerWidth  = tracksWidth + (config.horizontalEdgePadding * 2)
 
         tracksContentWidthConstraint?.constant = tracksWidth

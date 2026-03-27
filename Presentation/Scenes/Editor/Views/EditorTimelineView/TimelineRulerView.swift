@@ -18,14 +18,16 @@ final class TimelineRulerView: UIView {
 
     // MARK: - Configuration
 
-    /// Horizontal scale: how many points represent one second of media.
-    var pixelsPerSecond: CGFloat = 80 {
+    /// Horizontal scale for ticks and labels; swap the whole value to change zoom.
+    var layout: TimelineLayoutProvider = TimelineLayoutProvider(pointsPerSecond: 80) {
         didSet {
-            guard pixelsPerSecond != oldValue else { return }
+            guard layout != oldValue else { return }
             setNeedsLayout()
             setNeedsDisplay()
         }
     }
+
+    private var pointsPerSecond: CGFloat { layout.pointsPerSecond }
 
     private var secondLabels: [UILabel] = []
 
@@ -61,9 +63,9 @@ final class TimelineRulerView: UIView {
     // MARK: - Drawing
 
     override func draw(_ rect: CGRect) {
-        guard let ctx = UIGraphicsGetCurrentContext(), pixelsPerSecond > 0 else { return }
+        guard let ctx = UIGraphicsGetCurrentContext(), pointsPerSecond > 0 else { return }
 
-        let halfPx      = pixelsPerSecond / 2   // points per 0.5 s interval
+        let halfPx      = pointsPerSecond / 2   // points per 0.5 s interval
         let majorH: CGFloat = 10                // major tick height (1 s)
         let minorH: CGFloat = 5                 // minor tick height (0.5 s)
         let width   = bounds.width
@@ -89,9 +91,9 @@ final class TimelineRulerView: UIView {
     }
 
     private func rebuildLabelsIfNeeded() {
-        guard pixelsPerSecond > 0, bounds.width > 0 else { return }
+        guard pointsPerSecond > 0, bounds.width > 0 else { return }
 
-        let maxSecond = Int(bounds.width / pixelsPerSecond)
+        let maxSecond = Int(bounds.width / pointsPerSecond)
         let requiredCount = maxSecond + 1
 
         if secondLabels.count != requiredCount {
@@ -108,7 +110,7 @@ final class TimelineRulerView: UIView {
             let label = secondLabels[second]
             label.text = "\(second)s"
             label.sizeToFit()
-            let x = CGFloat(second) * pixelsPerSecond
+            let x = layout.xPosition(forSeconds: Double(second))
             label.frame.origin = CGPoint(x: x - (label.bounds.width / 2), y: 3)
         }
     }

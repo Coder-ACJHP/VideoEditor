@@ -14,9 +14,9 @@ final class ImageTrackMediaView: TrackMediaView {
     private var tileImageViews: [UIImageView] = []
     private var loadedImage: UIImage?
 
-    init(frame: CGRect, clip: MediaClip, pixelsPerSecond: CGFloat, thumbnailGenerator: ThumbnailGenerating) {
+    init(frame: CGRect, clip: MediaClip, layout: TimelineLayoutProvider, thumbnailGenerator: ThumbnailGenerating) {
         self.thumbnailGenerator = thumbnailGenerator
-        super.init(frame: frame, clip: clip, pixelsPerSecond: pixelsPerSecond)
+        super.init(frame: frame, clip: clip, layout: layout)
     }
 
     required init?(coder: NSCoder) {
@@ -37,7 +37,7 @@ final class ImageTrackMediaView: TrackMediaView {
     // MARK: - Tiling
 
     private var tileWidth: CGFloat {
-        pixelsPerSecond
+        layout.pointsPerSecond
     }
 
     private var neededTileCount: Int {
@@ -96,8 +96,7 @@ final class ImageTrackMediaView: TrackMediaView {
         Task { @MainActor [weak self] in
             guard let self else { return }
             let h = contentView.bounds.height > 0 ? contentView.bounds.height : 60
-            let scale = UIScreen.main.scale
-            let size = CGSize(width: tileWidth * scale, height: h * scale)
+            let size = CGSize(width: tileWidth, height: h)
 
             let image = await thumbnailGenerator.thumbnail(for: clip.asset, size: size)
             guard !Task.isCancelled else { return }

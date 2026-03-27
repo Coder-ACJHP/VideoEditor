@@ -3,7 +3,7 @@
 //  VideoEditor
 //
 //  Root view controller for the editing canvas.
-//  Owns all editor sub-components and mediates between them.
+//  Owns layout and subview wiring; session state lives in EditorViewModel.
 //
 //  Full layout (top → bottom):
 //  ┌─────────────────────────────────────────────┐
@@ -20,32 +20,30 @@
 //
 
 import UIKit
-import CoreMedia
 
 @MainActor
 final class EditorViewController: UIViewController {
 
     // MARK: - Dependencies
 
-    private let router:  RouterDelegate
-    private let project: EditingProject
+    private let router: RouterDelegate
+    private let viewModel: EditorViewModel
     private let thumbnailGenerator: ThumbnailGenerating
-    private var workingTracks: [MediaTrack]
 
     // MARK: - UI Components
 
     private let navigationBar = EditorNavigationBar()
-    private let renderView    = EditorRenderView()
-    private let toolbarView   = EditorToolbarView()
-    private let featuresView  = EditorFeaturesView()
-    private lazy var timelineView  = EditorTimelineView(
+    private let renderView = EditorRenderView()
+    private let toolbarView = EditorToolbarView()
+    private let featuresView = EditorFeaturesView()
+    private lazy var timelineView = EditorTimelineView(
         thumbnailGenerator: thumbnailGenerator
     )
 
     // MARK: - Layout
 
     private let collapsedHeightRatio: CGFloat = 0.40
-    private let expandedHeightRatio:  CGFloat = 0.65
+    private let expandedHeightRatio: CGFloat = 0.65
     private var renderViewHeightConstraint: NSLayoutConstraint?
     private var featuresHeightConstraint: NSLayoutConstraint?
 
@@ -53,13 +51,12 @@ final class EditorViewController: UIViewController {
 
     init(
         router: RouterDelegate,
-        project: EditingProject,
+        viewModel: EditorViewModel,
         thumbnailGenerator: ThumbnailGenerating
     ) {
-        self.router  = router
-        self.project = project
+        self.router = router
+        self.viewModel = viewModel
         self.thumbnailGenerator = thumbnailGenerator
-        self.workingTracks = project.tracks
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -72,6 +69,8 @@ final class EditorViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
+        view.accessibilityIdentifier = "editor.root"
+        viewModel.delegate = self
         setupNavigationBar()
         setupRenderView()
         setupToolbarView()
@@ -102,7 +101,7 @@ final class EditorViewController: UIViewController {
             navigationBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             navigationBar.heightAnchor.constraint(equalToConstant: 52),
         ])
-        navigationBar.configure(projectName: project.name, aspectRatio: "9:16")
+        navigationBar.configure(projectName: viewModel.projectDisplayName, aspectRatio: "9:16")
     }
 
     private func setupRenderView() {
@@ -152,143 +151,29 @@ final class EditorViewController: UIViewController {
             timelineView.topAnchor.constraint(equalTo: toolbarView.bottomAnchor),
             timelineView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             timelineView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            // Flexible: fills all space between the toolbar and the features bar.
             timelineView.bottomAnchor.constraint(equalTo: featuresView.topAnchor),
         ])
     }
 
-    /// Seeds toolbar and timeline with the project’s initial state.
+    /// Toolbar defaults; timeline + total duration come from the view model.
     private func applyInitialState() {
-        toolbarView.setCurrentTime(formatTime(0))
-        toolbarView.setTotalDuration(formatTime(currentProjectSnapshot.totalDuration.seconds))
+        toolbarView.setCurrentTime(TimelineClockFormatter.string(fromSeconds: 0))
         toolbarView.setUndoEnabled(false)
         toolbarView.setRedoEnabled(false)
-        timelineView.configure(with: currentProjectSnapshot)
+        viewModel.start()
+    }
+}
+
+// MARK: - EditorViewModelDelegate
+
+extension EditorViewController: EditorViewModelDelegate {
+
+    func editorViewModelDidRequestTimelineReload(_ viewModel: EditorViewModel) {
+        timelineView.configure(with: viewModel.projectSnapshot())
     }
 
-    // MARK: - Helpers
-
-    private func formatTime(_ seconds: Double) -> String {
-        let total = max(Int(seconds), 0)
-        return String(format: "%02d:%02d", total / 60, total % 60)
-    }
-
-    private var currentProjectSnapshot: EditingProject {
-        EditingProject(
-            id: project.id,
-            name: project.name,
-            creationDate: project.creationDate,
-            lastModifiedDate: Date(),
-            tracks: workingTracks,
-            exportSettings: project.exportSettings
-        )
-    }
-
-    private func refreshTimeline() {
-        let snapshot = currentProjectSnapshot
-        toolbarView.setTotalDuration(formatTime(snapshot.totalDuration.seconds))
-        timelineView.configure(with: snapshot)
-    }
-
-    /// Duration of the master (video) timeline in seconds.
-    /// Non-video clips are clamped to this when a master exists.
-    private var masterTrackDuration: Double? {
-        let videoTracks = workingTracks.filter { $0.trackType == .video }
-        guard !videoTracks.isEmpty else { return nil }
-        let end = videoTracks
-            .flatMap(\.clips)
-            .map(\.timelineRange.endSeconds)
-            .max() ?? 0
-        return end > 0 ? end : nil
-    }
-
-    // MARK: - Temporary Test Inserts
-
-    /// Looks up a bundled test-media file in `Resources/Test Media`.
-    private func bundledTestMediaURL(resource: String, withExtension ext: String) -> URL? {
-        if let url = Bundle.main.url(forResource: resource, withExtension: ext, subdirectory: "Test Media") {
-            return url
-        }
-        return Bundle.main.url(forResource: resource, withExtension: ext)
-    }
-
-    /// Temporary text-to-image utility for timeline testing.
-    /// Later this will receive real user input from the text tool UI.
-    private func makeTextImageURL(for text: String) -> URL? {
-        let rendererFormat = UIGraphicsImageRendererFormat.default()
-        rendererFormat.opaque = false
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 720, height: 220), format: rendererFormat)
-        let image = renderer.image { context in
-            UIColor.clear.setFill()
-            context.fill(CGRect(origin: .zero, size: renderer.format.bounds.size))
-
-            let paragraph = NSMutableParagraphStyle()
-            paragraph.alignment = .center
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 96, weight: .bold),
-                .foregroundColor: UIColor.white,
-                .paragraphStyle: paragraph
-            ]
-
-            let textRect = CGRect(x: 24, y: 40, width: 672, height: 140)
-            (text as NSString).draw(in: textRect, withAttributes: attributes)
-        }
-
-        guard let data = image.pngData() else { return nil }
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("test-text-\(UUID().uuidString)")
-            .appendingPathExtension("png")
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            print("Failed to write text image: \(error)")
-            return nil
-        }
-    }
-
-    /// Temporary helper for quickly appending a clip.
-    /// By default each inserted test media gets its own dedicated track lane.
-    private func appendTemporaryClip(
-        to trackType: MediaTrack.TrackType,
-        asset: AssetIdentifier,
-        duration: Double,
-        alwaysCreateNewTrack: Bool = true
-    ) async {
-        let minDuration = TimelineConfiguration.default.minClipDuration
-        let safeDuration = max(duration, minDuration)
-        let timelineDuration: Double
-        if trackType == .video {
-            timelineDuration = safeDuration
-        } else if let masterDuration = masterTrackDuration {
-            timelineDuration = min(safeDuration, masterDuration)
-        } else {
-            timelineDuration = safeDuration
-        }
-        let sourceDuration = await AssetDurationResolver.sourceDuration(for: asset) ?? safeDuration
-        let sourceRange = ClipTimeRange(startSeconds: 0, durationSeconds: sourceDuration)
-
-        if alwaysCreateNewTrack {
-            let range = ClipTimeRange(startSeconds: 0, durationSeconds: timelineDuration)
-            let clip = MediaClip(asset: asset, timelineRange: range, sourceRange: sourceRange)
-            workingTracks.append(MediaTrack(trackType: trackType, clips: [clip]))
-            refreshTimeline()
-            return
-        }
-
-        if let existingIndex = workingTracks.firstIndex(where: { $0.trackType == trackType }) {
-            let start = workingTracks[existingIndex].clips.map(\.timelineRange.endSeconds).max() ?? 0
-            let range = ClipTimeRange(startSeconds: start, durationSeconds: timelineDuration)
-            let clip = MediaClip(asset: asset, timelineRange: range, sourceRange: sourceRange)
-            workingTracks[existingIndex].clips.append(clip)
-        } else {
-            let range = ClipTimeRange(startSeconds: 0, durationSeconds: timelineDuration)
-            let clip = MediaClip(asset: asset, timelineRange: range, sourceRange: sourceRange)
-            let track = MediaTrack(trackType: trackType, clips: [clip])
-            workingTracks.append(track)
-        }
-
-        refreshTimeline()
+    func editorViewModel(_ viewModel: EditorViewModel, didUpdateToolbarTotalDuration formatted: String) {
+        toolbarView.setTotalDuration(formatted)
     }
 }
 
@@ -367,7 +252,7 @@ extension EditorViewController: EditorToolbarViewDelegate {
 extension EditorViewController: EditorTimelineViewDelegate {
 
     func timelineView(_ timeline: EditorTimelineView, didScrubToTime seconds: Double) {
-        toolbarView.setCurrentTime(formatTime(seconds))
+        toolbarView.setCurrentTime(viewModel.formattedScrubTime(seconds: seconds))
         // TODO: Seek the playback engine to `seconds`.
     }
 
@@ -380,11 +265,11 @@ extension EditorViewController: EditorTimelineViewDelegate {
     }
 
     func timelineView(_ timeline: EditorTimelineView, didExtendDurationTo seconds: Double) {
-        toolbarView.setTotalDuration(formatTime(seconds))
+        viewModel.onMasterTimelineDurationChanged(seconds: seconds)
     }
 
     func timelineView(_ timeline: EditorTimelineView, didUpdateTracks tracks: [MediaTrack]) {
-        workingTracks = tracks
+        viewModel.syncTracksFromTimeline(tracks)
     }
 }
 
@@ -393,33 +278,8 @@ extension EditorViewController: EditorTimelineViewDelegate {
 extension EditorViewController: EditorFeaturesViewDelegate {
 
     func featuresView(_ view: EditorFeaturesView, didSelectItem item: FeatureItem) {
-        // NOTE: Temporary test-only shortcuts requested by product/dev:
-        // Audio/Text/Sticker taps append synthetic clips directly to timeline.
         Task { @MainActor in
-            switch item.id {
-                case "audio":
-                    guard let url = bundledTestMediaURL(resource: "Reflection", withExtension: "mp3") else {
-                        print("Missing bundled test media: Reflection.mp3")
-                        return
-                    }
-                    let asset: AssetIdentifier = .audio(url)
-                    let duration = await AssetDurationResolver.sourceDuration(for: asset) ?? 5
-                    await appendTemporaryClip(to: .audio, asset: asset, duration: duration)
-                case "text":
-                    guard let url = makeTextImageURL(for: "Sample Text") else {
-                        print("Failed to generate temporary text image")
-                        return
-                    }
-                    await appendTemporaryClip(to: .overlay, asset: .image(url), duration: 3)
-                case "sticker":
-                    guard let url = bundledTestMediaURL(resource: "img1", withExtension: "jpg") else {
-                        print("Missing bundled test media: img1.jpg")
-                        return
-                    }
-                    await appendTemporaryClip(to: .overlay, asset: .image(url), duration: 3)
-                default:
-                    print("Feature view didSelect item: \(item)")
-            }
+            await viewModel.handleMainMenuFeatureSelection(item)
         }
     }
 

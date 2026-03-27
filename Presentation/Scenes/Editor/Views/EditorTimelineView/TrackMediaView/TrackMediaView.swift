@@ -1,13 +1,18 @@
 //
-//  TrackMediaView.swift
+//  TrackMediaView 2.swift
 //  VideoEditor
 //
+//  Created by Coder ACJHP on 27.03.2026.
+//
+
 
 import UIKit
 
 protocol TrackMediaViewDelegate: AnyObject {
     func trackMediaViewDidToggleSelection(_ view: TrackMediaView)
     func trackMediaView(_ view: TrackMediaView, didChangeTimelineRange range: ClipTimeRange, sourceRange: ClipTimeRange, allowExtension: Bool)
+    /// User tapped the master-track transition control (between this clip and the next).
+    func trackMediaViewDidTapTransitionAffordance(_ view: TrackMediaView)
 }
 
 class TrackMediaView: UIView {
@@ -17,11 +22,24 @@ class TrackMediaView: UIView {
     weak var delegate: TrackMediaViewDelegate?
 
     let clip: MediaClip
-    let pixelsPerSecond: CGFloat
+    let layout: TimelineLayoutProvider
     private(set) var isSelected = false
     /// When true, center drag is disabled and contiguity is enforced.
     var isMasterTrack = false
+    /// When true, this clip can show a transition control toward the next clip (master track only).
+    /// The control is only visible while **unselected** so it does not fight the right trim handle.
+    var showsMasterTransitionAffordance = false {
+        didSet {
+            updateMasterTransitionAffordanceVisibility()
+            setNeedsLayout()
+        }
+    }
     var contentView: UIView { mediaContainerView }
+
+    /// Mirrors `clip.transitionOut` for UI; update when the model changes.
+    private(set) var appliedTransitionOut: ClipTransition? {
+        didSet { updateTransitionButton() }
+    }
 
     private var timelineRange: ClipTimeRange
     private(set) var sourceRange: ClipTimeRange
@@ -43,12 +61,46 @@ class TrackMediaView: UIView {
     private let leftHandle = UILabel()
     private let rightHandle = UILabel()
 
-    init(frame: CGRect, clip: MediaClip, pixelsPerSecond: CGFloat) {
+    /// Uses `.custom` so iOS does not apply system-button metrics, Dynamic Type padding, or varying minimum sizes
+    /// that make chips look inconsistent across clips. Symbols use one glyph + tint only (not outline vs fill).
+    private lazy var transitionButton: UIButton = {
+        let active = appliedTransitionOut != nil
+        var bgConfig = UIBackgroundConfiguration.clear()
+        bgConfig.backgroundColor = active
+        ? UIColor.black.withAlphaComponent(0.62)
+        : UIColor.black.withAlphaComponent(0.45)
+        bgConfig.cornerRadius = config.masterTransitionAffordanceSize / 2
+
+        var btnConfig = UIButton.Configuration.plain()
+        btnConfig.background = bgConfig
+        btnConfig.cornerStyle = .dynamic
+        btnConfig.contentInsets = .zero
+        btnConfig.imagePlacement = .all
+        btnConfig.imagePadding = 6
+        btnConfig.baseForegroundColor = active ? config.selectionColor : .white
+        let sym = UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
+        let image = UIImage(systemName: "arrow.left.arrow.right.circle", withConfiguration: sym)?
+            .withRenderingMode(.alwaysTemplate)
+        btnConfig.image = image
+        
+        let button = UIButton(configuration: btnConfig, primaryAction: UIAction(handler: { [weak self] action in
+            guard let self else { return }
+            delegate?.trackMediaViewDidTapTransitionAffordance(self)
+        }))
+        button.clipsToBounds = true
+        button.isHidden = true
+        button.accessibilityLabel = "Transition to next clip"
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }()
+
+    init(frame: CGRect, clip: MediaClip, layout: TimelineLayoutProvider) {
         self.clip = clip
-        self.pixelsPerSecond = max(pixelsPerSecond, 1)
+        self.layout = layout
         self.timelineRange = clip.timelineRange
         self.sourceRange = clip.sourceRange
         self.maxSourceEnd = clip.sourceRange.endSeconds
+        self.appliedTransitionOut = clip.transitionOut
         super.init(frame: frame)
         setupView()
         updateDurationLabel()
@@ -56,6 +108,14 @@ class TrackMediaView: UIView {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        if bounds.contains(point) { return true }
+        if isMasterTransitionAffordanceInteractive, transitionButton.frame.contains(point) {
+            return true
+        }
+        return false
     }
 
     override func layoutSubviews() {
@@ -78,6 +138,8 @@ class TrackMediaView: UIView {
         leftHandlePan.isEnabled = selected
         rightHandlePan.isEnabled = selected
         panGesture.isEnabled = selected && !isMasterTrack
+
+        updateMasterTransitionAffordanceVisibility()
     }
 
     func applyTimelineRange(_ range: ClipTimeRange) {
@@ -91,6 +153,22 @@ class TrackMediaView: UIView {
 
     func updateTrackLimits(maxDuration: Double) {
         maxTrackDuration = max(maxDuration, config.minClipDuration)
+    }
+
+    /// Keeps the affordance in sync after the track model updates `transitionOut`.
+    func applyTransitionOut(_ transition: ClipTransition?) {
+        appliedTransitionOut = transition
+    }
+
+    /// `true` when the transition chip is on-screen and tappable (master affordance + unselected).
+    private var isMasterTransitionAffordanceInteractive: Bool {
+        showsMasterTransitionAffordance && !isSelected
+    }
+
+    private func updateMasterTransitionAffordanceVisibility() {
+        let show = isMasterTransitionAffordanceInteractive
+        transitionButton.isHidden = !show
+        transitionButton.isUserInteractionEnabled = show
     }
 
     func setupMediaContent() {}
@@ -132,6 +210,16 @@ class TrackMediaView: UIView {
         leftHandle.addGestureRecognizer(leftHandlePan)
         rightHandle.addGestureRecognizer(rightHandlePan)
 
+        addSubview(transitionButton)
+        let size = config.masterTransitionAffordanceSize
+        NSLayoutConstraint.activate([
+            transitionButton.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: size/2),
+            transitionButton.centerYAnchor.constraint(equalTo: self.centerYAnchor),
+            transitionButton.widthAnchor.constraint(equalToConstant: size),
+            transitionButton.heightAnchor.constraint(equalTo: transitionButton.widthAnchor)
+        ])
+        bringSubviewToFront(transitionButton)
+
         setSelected(false)
     }
 
@@ -153,6 +241,19 @@ class TrackMediaView: UIView {
         durationLabel.text = String(format: "%02d:%02d", total / 60, total % 60)
     }
 
+    /// Single SF Symbol for all states so glyph bounds match; active state uses tint + background emphasis only.
+    private func updateTransitionButton() {
+        var currenConfig = transitionButton.configuration
+        let active = appliedTransitionOut != nil
+        currenConfig?.baseForegroundColor = active ? config.selectionColor : .white
+        var bgConfig = currenConfig?.background ?? UIBackgroundConfiguration.clear()
+        bgConfig.backgroundColor = active
+            ? UIColor.black.withAlphaComponent(0.62)
+            : UIColor.black.withAlphaComponent(0.45)
+        currenConfig?.background = bgConfig
+        transitionButton.configuration = currenConfig
+    }
+
     @objc private func handleTap() {
         delegate?.trackMediaViewDidToggleSelection(self)
     }
@@ -168,11 +269,11 @@ class TrackMediaView: UIView {
             initialRange = timelineRange
         case .changed:
             let tx = gesture.translation(in: superview).x
-            let trackWidthPx = CGFloat(maxTrackDuration) * pixelsPerSecond
+            let trackWidthPx = layout.xPosition(forSeconds: maxTrackDuration)
             let maxOriginX = max(trackWidthPx - frame.width, 0)
             let x = min(max(initialFrame.origin.x + tx, 0), maxOriginX)
             frame.origin.x = x
-            timelineRange.startSeconds = Double(x / pixelsPerSecond)
+            timelineRange.startSeconds = layout.seconds(forXPosition: x)
             notifyRangeChanged(allowExtension: false)
         default:
             break
@@ -195,12 +296,12 @@ class TrackMediaView: UIView {
             initialSourceRange = sourceRange
         case .changed:
             let tx = gesture.translation(in: superview).x
-            let minWidth = CGFloat(config.minClipDuration) * pixelsPerSecond
+            let minWidth = layout.width(forDurationSeconds: config.minClipDuration)
 
             if isMasterTrack {
                 // Master track: only width changes; origin.x is set by
                 // enforceContiguity in the delegate, keeping clips gap/overlap-free.
-                let deltaSeconds = Double(tx / pixelsPerSecond)
+                let deltaSeconds = layout.seconds(forXPosition: tx)
                 let newDuration: Double
 
                 if isTimeBasedMedia {
@@ -215,14 +316,14 @@ class TrackMediaView: UIView {
                     sourceRange.durationSeconds = newDuration
                 }
 
-                frame.size.width = CGFloat(newDuration) * pixelsPerSecond
+                frame.size.width = layout.width(forDurationSeconds: newDuration)
                 timelineRange.durationSeconds = newDuration
                 notifyRangeChanged(allowExtension: true)
             } else {
                 // Non-master: move the left edge freely within track bounds.
                 let minClampedX: CGFloat
                 if isTimeBasedMedia {
-                    minClampedX = max(0, initialFrame.minX - CGFloat(initialSourceRange.startSeconds) * pixelsPerSecond)
+                    minClampedX = max(0, initialFrame.minX - layout.xPosition(forSeconds: initialSourceRange.startSeconds))
                 } else {
                     minClampedX = 0
                 }
@@ -233,9 +334,9 @@ class TrackMediaView: UIView {
                 frame.origin.x = clampedX
                 frame.size.width = newWidth
 
-                let startDeltaSeconds = Double((clampedX - initialFrame.minX) / pixelsPerSecond)
+                let startDeltaSeconds = layout.seconds(forXPosition: clampedX - initialFrame.minX)
                 timelineRange.startSeconds = initialRange.startSeconds + startDeltaSeconds
-                timelineRange.durationSeconds = max(Double(newWidth / pixelsPerSecond), config.minClipDuration)
+                timelineRange.durationSeconds = max(layout.seconds(forXPosition: newWidth), config.minClipDuration)
 
                 if isTimeBasedMedia {
                     sourceRange.startSeconds = max(initialSourceRange.startSeconds + startDeltaSeconds, 0)
@@ -267,27 +368,27 @@ class TrackMediaView: UIView {
             initialSourceRange = sourceRange
         case .changed:
             let tx = gesture.translation(in: superview).x
-            let minWidth = CGFloat(config.minClipDuration) * pixelsPerSecond
+            let minWidth = layout.width(forDurationSeconds: config.minClipDuration)
             let candidateWidth = initialFrame.width + tx
 
             let maxWidth: CGFloat
             if isTimeBasedMedia {
                 let maxDuration = maxSourceEnd - sourceRange.startSeconds
-                maxWidth = CGFloat(maxDuration) * pixelsPerSecond
+                maxWidth = layout.width(forDurationSeconds: maxDuration)
             } else {
                 maxWidth = .greatestFiniteMagnitude
             }
 
             var allowedMaxWidth = maxWidth
             if !isMasterTrack {
-                let maxEndX = CGFloat(maxTrackDuration) * pixelsPerSecond
+                let maxEndX = layout.xPosition(forSeconds: maxTrackDuration)
                 let availableWidth = max(maxEndX - initialFrame.minX, minWidth)
                 allowedMaxWidth = min(allowedMaxWidth, availableWidth)
             }
 
             let newWidth = min(max(candidateWidth, minWidth), allowedMaxWidth)
             frame.size.width = newWidth
-            timelineRange.durationSeconds = max(Double(newWidth / pixelsPerSecond), config.minClipDuration)
+            timelineRange.durationSeconds = max(layout.seconds(forXPosition: newWidth), config.minClipDuration)
 
             if isTimeBasedMedia {
                 sourceRange.durationSeconds = timelineRange.durationSeconds
@@ -304,6 +405,12 @@ class TrackMediaView: UIView {
     private func notifyRangeChanged(allowExtension: Bool) {
         updateDurationLabel()
         setNeedsLayout()
-        delegate?.trackMediaView(self, didChangeTimelineRange: timelineRange, sourceRange: sourceRange, allowExtension: allowExtension)
+        delegate?
+            .trackMediaView(
+                self,
+                didChangeTimelineRange: timelineRange,
+                sourceRange: sourceRange,
+                allowExtension: allowExtension
+            )
     }
 }

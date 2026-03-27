@@ -15,10 +15,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = (scene as? UIWindowScene) else { return }
 
+        if ProcessInfo.processInfo.arguments.contains("-uitesting-reset-state") {
+            ProjectFactory.resetProjectNameCounterForUITesting()
+        }
+
         let navigationController = UINavigationController()
-        let router = AppRouter(controller: navigationController)
+        let thumbnailService = LocalThumbnailService()
+        let router = AppRouter(controller: navigationController, thumbnailService: thumbnailService)
         self.appRouter = router  // Retain for the scene's lifetime
-        router.navigate(to: .landing, animated: false)
+        router.navigate(to: Route.landing, animated: false)
 
         let window = UIWindow(windowScene: windowScene)
         window.rootViewController = navigationController

@@ -16,8 +16,8 @@
 //     rightmost clip end.
 //  4) Non-master tracks do not control shrink. They resolve overlaps locally
 //     and only request timeline extension when needed.
-//  5) Left-trim on master track defers contiguity until gesture end, so users
-//     can see the left edge move during trimming, then clips snap back.
+//  5) Left-trim on master track enforces contiguity live during the gesture;
+//     only the clip's width changes while contiguity sets its position.
 //
 
 import UIKit
@@ -33,6 +33,8 @@ protocol TimelineTrackViewDelegate: AnyObject {
     func trackView(_ view: TimelineTrackView, didRequestTimelineExtensionTo newDuration: Double)
     /// Fired when the master (video) track's total duration shrinks after a trim.
     func trackView(_ view: TimelineTrackView, didRequestTimelineShrinkTo newDuration: Double)
+    /// Fired whenever this lane's clip model changes due to drag/trim/collision updates.
+    func trackView(_ view: TimelineTrackView, didUpdateTrack track: MediaTrack)
 }
 
 // MARK: - TimelineTrackView
@@ -43,12 +45,16 @@ final class TimelineTrackView: UIView {
     let trackType: MediaTrack.TrackType
     weak var delegate: TimelineTrackViewDelegate?
 
+    /// Read-only snapshot of the current track model (after any live edits).
+    var currentTrackSnapshot: MediaTrack? { currentTrack }
+
     // MARK: - Private
 
     private var clipViews: [UIView] = []
     private var pixelsPerSecond: CGFloat = 80
     private var currentTrack: MediaTrack?
     private var maxTrackDuration: Double = 0
+    private var durationLimitOverride: Double?
     private let thumbnailGenerator: ThumbnailGenerating
     private weak var selectedMediaView: TrackMediaView?
 
@@ -75,11 +81,54 @@ final class TimelineTrackView: UIView {
         selectedMediaView = nil
     }
 
+    // MARK: - Duration Limit
+
+    /// Pushes a new duration ceiling from the master track and clamps
+    /// any clips whose right edge now exceeds that ceiling.
+    func updateDurationLimit(_ limit: Double?) {
+        durationLimitOverride = limit
+        let ceiling = effectiveTrackDurationLimit
+        let maxPx = CGFloat(ceiling) * pixelsPerSecond
+
+        for view in clipViews.compactMap({ $0 as? TrackMediaView }) {
+            view.updateTrackLimits(maxDuration: ceiling)
+            guard view.frame.maxX > maxPx else { continue }
+
+            let clampedWidth = max(maxPx - view.frame.origin.x, 0)
+            let minW = CGFloat(TimelineConfiguration.default.minClipDuration) * pixelsPerSecond
+            guard clampedWidth >= minW else { continue }
+
+            view.frame.size.width = clampedWidth
+
+            let duration = Double(clampedWidth / pixelsPerSecond)
+            let range = ClipTimeRange(
+                startSeconds: Double(view.frame.origin.x / pixelsPerSecond),
+                durationSeconds: duration
+            )
+            view.applyTimelineRange(range)
+
+            var src = view.sourceRange
+            src.durationSeconds = duration
+            view.applySourceRange(src)
+
+            guard var track = currentTrack else { continue }
+            guard track.clips.indices.contains(view.tag) else { continue }
+            track.clips[view.tag].timelineRange = range
+            track.clips[view.tag].sourceRange.durationSeconds = duration
+            currentTrack = track
+        }
+    }
+
     // MARK: - Configuration
 
-    func configure(with track: MediaTrack?, pixelsPerSecond pxPerSec: CGFloat) {
+    func configure(
+        with track: MediaTrack?,
+        pixelsPerSecond pxPerSec: CGFloat,
+        durationLimitOverride: Double? = nil
+    ) {
         self.pixelsPerSecond = pxPerSec
         self.currentTrack = track
+        self.durationLimitOverride = durationLimitOverride
         self.maxTrackDuration = max(Double(bounds.width / max(pxPerSec, 1)), 0)
 
         clipViews.forEach { $0.removeFromSuperview() }
@@ -102,7 +151,7 @@ final class TimelineTrackView: UIView {
         maxTrackDuration = max(Double(bounds.width / max(pixelsPerSecond, 1)), 0)
         clipViews.forEach {
             guard let mediaView = $0 as? TrackMediaView else { return }
-            mediaView.updateTrackLimits(maxDuration: maxTrackDuration)
+            mediaView.updateTrackLimits(maxDuration: effectiveTrackDurationLimit)
             mediaView.frame.size.height = trackContentHeight
         }
     }
@@ -110,6 +159,7 @@ final class TimelineTrackView: UIView {
     // MARK: - Private Helpers
 
     private var trackContentHeight: CGFloat { bounds.height }
+    private var effectiveTrackDurationLimit: Double { durationLimitOverride ?? maxTrackDuration }
 
     private func makeClipView(for clip: MediaClip, at index: Int) -> UIView {
         let xPos   = CGFloat(clip.timelineRange.startSeconds)    * pixelsPerSecond
@@ -126,7 +176,7 @@ final class TimelineTrackView: UIView {
         mediaView.tag = index
         mediaView.delegate = self
         mediaView.isMasterTrack = (trackType == .video)
-        mediaView.updateTrackLimits(maxDuration: maxTrackDuration)
+        mediaView.updateTrackLimits(maxDuration: effectiveTrackDurationLimit)
         mediaView.setSelected(false)
         mediaView.applyTimelineRange(clip.timelineRange)
 
@@ -187,8 +237,6 @@ extension TimelineTrackView: TrackMediaViewDelegate {
         currentTrack = track
 
         if trackType == .video {
-            // During a left-trim gesture, contiguity and resize are deferred
-            // until the gesture ends (trackMediaViewDidFinishLeftTrim).
             if allowExtension {
                 enforceContiguity(editedView: view)
                 requestTimelineResizeIfNeeded()
@@ -199,14 +247,8 @@ extension TimelineTrackView: TrackMediaViewDelegate {
                 requestTimelineExtensionIfNeeded()
             }
         }
-    }
 
-    func trackMediaViewDidFinishLeftTrim(_ view: TrackMediaView) {
-        guard trackType == .video else { return }
-        UIView.animate(withDuration: 0.2, delay: 0, options: .curveEaseOut) {
-            self.enforceContiguity(editedView: view)
-        }
-        requestTimelineResizeIfNeeded()
+        notifyTrackUpdated()
     }
 
     // MARK: - Master Track Contiguity
@@ -309,5 +351,10 @@ extension TimelineTrackView: TrackMediaViewDelegate {
 
         let newDuration = Double(maxEndPx / pixelsPerSecond)
         delegate?.trackView(self, didRequestTimelineExtensionTo: newDuration)
+    }
+
+    private func notifyTrackUpdated() {
+        guard let track = currentTrack else { return }
+        delegate?.trackView(self, didUpdateTrack: track)
     }
 }

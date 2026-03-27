@@ -189,6 +189,107 @@ final class EditorViewController: UIViewController {
         toolbarView.setTotalDuration(formatTime(snapshot.totalDuration.seconds))
         timelineView.configure(with: snapshot)
     }
+
+    /// Duration of the master (video) timeline in seconds.
+    /// Non-video clips are clamped to this when a master exists.
+    private var masterTrackDuration: Double? {
+        let videoTracks = workingTracks.filter { $0.trackType == .video }
+        guard !videoTracks.isEmpty else { return nil }
+        let end = videoTracks
+            .flatMap(\.clips)
+            .map(\.timelineRange.endSeconds)
+            .max() ?? 0
+        return end > 0 ? end : nil
+    }
+
+    // MARK: - Temporary Test Inserts
+
+    /// Looks up a bundled test-media file in `Resources/Test Media`.
+    private func bundledTestMediaURL(resource: String, withExtension ext: String) -> URL? {
+        if let url = Bundle.main.url(forResource: resource, withExtension: ext, subdirectory: "Test Media") {
+            return url
+        }
+        return Bundle.main.url(forResource: resource, withExtension: ext)
+    }
+
+    /// Temporary text-to-image utility for timeline testing.
+    /// Later this will receive real user input from the text tool UI.
+    private func makeTextImageURL(for text: String) -> URL? {
+        let rendererFormat = UIGraphicsImageRendererFormat.default()
+        rendererFormat.opaque = false
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 720, height: 220), format: rendererFormat)
+        let image = renderer.image { context in
+            UIColor.clear.setFill()
+            context.fill(CGRect(origin: .zero, size: renderer.format.bounds.size))
+
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.alignment = .center
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 96, weight: .bold),
+                .foregroundColor: UIColor.white,
+                .paragraphStyle: paragraph
+            ]
+
+            let textRect = CGRect(x: 24, y: 40, width: 672, height: 140)
+            (text as NSString).draw(in: textRect, withAttributes: attributes)
+        }
+
+        guard let data = image.pngData() else { return nil }
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("test-text-\(UUID().uuidString)")
+            .appendingPathExtension("png")
+        do {
+            try data.write(to: url, options: .atomic)
+            return url
+        } catch {
+            print("Failed to write text image: \(error)")
+            return nil
+        }
+    }
+
+    /// Temporary helper for quickly appending a clip.
+    /// By default each inserted test media gets its own dedicated track lane.
+    private func appendTemporaryClip(
+        to trackType: MediaTrack.TrackType,
+        asset: AssetIdentifier,
+        duration: Double,
+        alwaysCreateNewTrack: Bool = true
+    ) async {
+        let minDuration = TimelineConfiguration.default.minClipDuration
+        let safeDuration = max(duration, minDuration)
+        let timelineDuration: Double
+        if trackType == .video {
+            timelineDuration = safeDuration
+        } else if let masterDuration = masterTrackDuration {
+            timelineDuration = min(safeDuration, masterDuration)
+        } else {
+            timelineDuration = safeDuration
+        }
+        let sourceDuration = await AssetDurationResolver.sourceDuration(for: asset) ?? safeDuration
+        let sourceRange = ClipTimeRange(startSeconds: 0, durationSeconds: sourceDuration)
+
+        if alwaysCreateNewTrack {
+            let range = ClipTimeRange(startSeconds: 0, durationSeconds: timelineDuration)
+            let clip = MediaClip(asset: asset, timelineRange: range, sourceRange: sourceRange)
+            workingTracks.append(MediaTrack(trackType: trackType, clips: [clip]))
+            refreshTimeline()
+            return
+        }
+
+        if let existingIndex = workingTracks.firstIndex(where: { $0.trackType == trackType }) {
+            let start = workingTracks[existingIndex].clips.map(\.timelineRange.endSeconds).max() ?? 0
+            let range = ClipTimeRange(startSeconds: start, durationSeconds: timelineDuration)
+            let clip = MediaClip(asset: asset, timelineRange: range, sourceRange: sourceRange)
+            workingTracks[existingIndex].clips.append(clip)
+        } else {
+            let range = ClipTimeRange(startSeconds: 0, durationSeconds: timelineDuration)
+            let clip = MediaClip(asset: asset, timelineRange: range, sourceRange: sourceRange)
+            let track = MediaTrack(trackType: trackType, clips: [clip])
+            workingTracks.append(track)
+        }
+
+        refreshTimeline()
+    }
 }
 
 // MARK: - EditorNavigationBarDelegate
@@ -281,6 +382,10 @@ extension EditorViewController: EditorTimelineViewDelegate {
     func timelineView(_ timeline: EditorTimelineView, didExtendDurationTo seconds: Double) {
         toolbarView.setTotalDuration(formatTime(seconds))
     }
+
+    func timelineView(_ timeline: EditorTimelineView, didUpdateTracks tracks: [MediaTrack]) {
+        workingTracks = tracks
+    }
 }
 
 // MARK: - EditorFeaturesViewDelegate
@@ -288,7 +393,34 @@ extension EditorViewController: EditorTimelineViewDelegate {
 extension EditorViewController: EditorFeaturesViewDelegate {
 
     func featuresView(_ view: EditorFeaturesView, didSelectItem item: FeatureItem) {
-        print("Feature view didSelect item: \(item)")
+        // NOTE: Temporary test-only shortcuts requested by product/dev:
+        // Audio/Text/Sticker taps append synthetic clips directly to timeline.
+        Task { @MainActor in
+            switch item.id {
+                case "audio":
+                    guard let url = bundledTestMediaURL(resource: "Reflection", withExtension: "mp3") else {
+                        print("Missing bundled test media: Reflection.mp3")
+                        return
+                    }
+                    let asset: AssetIdentifier = .audio(url)
+                    let duration = await AssetDurationResolver.sourceDuration(for: asset) ?? 5
+                    await appendTemporaryClip(to: .audio, asset: asset, duration: duration)
+                case "text":
+                    guard let url = makeTextImageURL(for: "Sample Text") else {
+                        print("Failed to generate temporary text image")
+                        return
+                    }
+                    await appendTemporaryClip(to: .overlay, asset: .image(url), duration: 3)
+                case "sticker":
+                    guard let url = bundledTestMediaURL(resource: "img1", withExtension: "jpg") else {
+                        print("Missing bundled test media: img1.jpg")
+                        return
+                    }
+                    await appendTemporaryClip(to: .overlay, asset: .image(url), duration: 3)
+                default:
+                    print("Feature view didSelect item: \(item)")
+            }
+        }
     }
 
     func featuresViewDidTapBack(_ view: EditorFeaturesView) {

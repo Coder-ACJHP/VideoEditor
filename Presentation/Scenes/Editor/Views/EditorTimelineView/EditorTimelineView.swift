@@ -45,6 +45,8 @@ protocol EditorTimelineViewDelegate: AnyObject {
     func timelineViewDidDeselectAll(_ timeline: EditorTimelineView)
     /// Fired when a clip resize/move causes the total project duration to grow.
     func timelineView(_ timeline: EditorTimelineView, didExtendDurationTo seconds: Double)
+    /// Fired when any lane updates its underlying track model (drag/trim/collision).
+    func timelineView(_ timeline: EditorTimelineView, didUpdateTracks tracks: [MediaTrack])
 }
 
 // MARK: - EditorTimelineView
@@ -128,6 +130,8 @@ final class EditorTimelineView: UIView {
 
     /// Runtime-created lanes (audio/video/overlay). Rebuilt on every configure call.
     private var dynamicTrackViews: [TimelineTrackView] = []
+    /// Mutable snapshot of tracks currently rendered in the timeline.
+    private var currentTracks: [MediaTrack] = []
 
     /// Tap gesture that fires on empty space to clear all clip selections.
     private lazy var backgroundTapGesture: UITapGestureRecognizer = {
@@ -295,13 +299,14 @@ final class EditorTimelineView: UIView {
     /// Populates the timeline from the project model.
     /// Safe to call multiple times (e.g. after adding / removing clips).
     func configure(with project: EditingProject) {
+        currentTracks = project.tracks
         let duration = max(project.totalDuration.seconds, config.minimumProjectDuration)
         let tracksTimelineWidth = CGFloat(duration) * config.pixelsPerSecond
         let rulerTimelineWidth = tracksTimelineWidth + (config.horizontalEdgePadding * 2)
         rulerContentWidthConstraint?.constant = rulerTimelineWidth
         tracksContentWidthConstraint?.constant = tracksTimelineWidth
 
-        rebuildTrackViews(with: project.tracks)
+        rebuildTrackViews(with: currentTracks)
 
         rulerView.setNeedsDisplay()
         updateVerticalScrollingState()
@@ -375,6 +380,10 @@ final class EditorTimelineView: UIView {
         let overlays = tracks.filter { $0.trackType == .overlay }
         let audios = tracks.filter { $0.trackType == .audio }
         let videos = tracks.filter { $0.trackType == .video }
+        let masterTrackDuration = videos
+            .flatMap(\.clips)
+            .map(\.timelineRange.endSeconds)
+            .max()
 
         let orderedTracks = overlays + (audios.isEmpty ? [nil] : audios.map { Optional($0) }) + (videos.isEmpty ? [nil] : videos.map { Optional($0) })
 
@@ -395,7 +404,12 @@ final class EditorTimelineView: UIView {
             let lane = TimelineTrackView(trackType: trackType, thumbnailGenerator: thumbnailGenerator)
             lane.delegate = self
             lane.heightAnchor.constraint(equalToConstant: config.laneHeight(for: trackType)).isActive = true
-            lane.configure(with: model, pixelsPerSecond: config.pixelsPerSecond)
+            let durationLimit: Double? = (trackType == .video) ? nil : masterTrackDuration
+            lane.configure(
+                with: model,
+                pixelsPerSecond: config.pixelsPerSecond,
+                durationLimitOverride: durationLimit
+            )
             tracksStackView.addArrangedSubview(lane)
             dynamicTrackViews.append(lane)
         }
@@ -499,6 +513,30 @@ extension EditorTimelineView: TimelineTrackViewDelegate {
         let safeDuration = max(newDuration, config.minimumProjectDuration)
         resizeTimeline(to: safeDuration)
         delegate?.timelineView(self, didExtendDurationTo: safeDuration)
+    }
+
+    func trackView(_ view: TimelineTrackView, didUpdateTrack track: MediaTrack) {
+        if let index = currentTracks.firstIndex(where: { $0.id == track.id }) {
+            currentTracks[index] = track
+        } else {
+            currentTracks.append(track)
+        }
+
+        // When the master (video) track changes, push the new duration
+        // ceiling to every non-master lane so their clips stay within bounds.
+        if view.trackType == .video {
+            let masterEnd = track.clips.map(\.timelineRange.endSeconds).max()
+            for lane in dynamicTrackViews where lane.trackType != .video {
+                lane.updateDurationLimit(masterEnd)
+                if let updated = lane.currentTrackSnapshot {
+                    if let idx = currentTracks.firstIndex(where: { $0.id == updated.id }) {
+                        currentTracks[idx] = updated
+                    }
+                }
+            }
+        }
+
+        delegate?.timelineView(self, didUpdateTracks: currentTracks)
     }
 
     private func resizeTimeline(to duration: Double) {

@@ -33,9 +33,14 @@ protocol RouterDelegate: AnyObject {
 @MainActor
 class AppRouter: RouterDelegate {
     private let controller: UINavigationController
+    private let thumbnailService: ThumbnailGenerating
     
-    init(controller: UINavigationController) {
+    init(
+        controller: UINavigationController,
+        thumbnailService: ThumbnailGenerating = LocalThumbnailService()
+    ) {
         self.controller = controller
+        self.thumbnailService = thumbnailService
     }
     
     func navigate(to route: Route, animated: Bool) {
@@ -59,7 +64,11 @@ class AppRouter: RouterDelegate {
     }
     
     func navigateToEditor(with project: EditingProject, animated: Bool) {
-        let editorVC = EditorViewController(router: self, project: project)
+        let editorVC = EditorViewController(
+            router: self,
+            project: project,
+            thumbnailGenerator: thumbnailService
+        )
         controller.pushViewController(editorVC, animated: animated)
     }
 
@@ -69,10 +78,14 @@ class AppRouter: RouterDelegate {
     func makeViewController(baseRoute route: Route) -> UIViewController {
         switch route {
             case .landing:
-                return LandingViewController(router: self)
+                return LandingViewController(router: self, thumbnailService: thumbnailService)
             case .editor:
                 // Fallback with an empty project; prefer navigateToEditor(with:animated:) for real use.
-                return EditorViewController(router: self, project: EditingProject(name: "New Project"))
+                return EditorViewController(
+                    router: self,
+                    project: EditingProject(name: "New Project"),
+                    thumbnailGenerator: thumbnailService
+                )
             case .export:
                 return ExportViewController(router: self)
         }

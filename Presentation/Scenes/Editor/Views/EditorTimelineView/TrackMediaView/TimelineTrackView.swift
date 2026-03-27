@@ -20,42 +20,9 @@ protocol TimelineTrackViewDelegate: AnyObject {
 // MARK: - TimelineTrackView
 
 final class TimelineTrackView: UIView {
-
-    // MARK: - Track Kind
-
-    enum Kind {
-        /// Primary video / image lane — tall, thumbnail-style blocks with a yellow border.
-        case video
-        /// Audio lane — slimmer, solid-color blocks.
-        case audio
-
-        var height: CGFloat {
-            switch self {
-            case .video: return 60
-            case .audio: return 36
-            }
-        }
-
-        /// Clip block fill color.
-        var clipColor: UIColor {
-            switch self {
-            case .video: return .systemOrange
-            case .audio: return .systemPurple
-            }
-        }
-
-        /// Corresponding MediaTrack domain type(s).
-        var trackTypes: [MediaTrack.TrackType] {
-            switch self {
-            case .video: return [.video]
-            case .audio: return [.audio]
-            }
-        }
-    }
-
     // MARK: - Public
 
-    let kind: Kind
+    let trackType: MediaTrack.TrackType
     weak var delegate: TimelineTrackViewDelegate?
 
     // MARK: - Private
@@ -65,11 +32,13 @@ final class TimelineTrackView: UIView {
     private var currentTrack: MediaTrack?
     private weak var selectedMediaView: TrackMediaView?
     private var maxTrackDuration: Double = 0
+    private let thumbnailGenerator: ThumbnailGenerating
 
     // MARK: - Init
 
-    init(kind: Kind) {
-        self.kind = kind
+    init(trackType: MediaTrack.TrackType, thumbnailGenerator: ThumbnailGenerating) {
+        self.trackType = trackType
+        self.thumbnailGenerator = thumbnailGenerator
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = .tertiarySystemBackground
@@ -145,7 +114,12 @@ final class TimelineTrackView: UIView {
     private func makeMediaView(for clip: MediaClip, frame: CGRect) -> TrackMediaView {
         switch clip.asset.mediaType {
         case .video:
-            return VideoTrackMediaView(frame: frame, clip: clip, pixelsPerSecond: pixelsPerSecond)
+            return VideoTrackMediaView(
+                frame: frame,
+                clip: clip,
+                pixelsPerSecond: pixelsPerSecond,
+                thumbnailGenerator: thumbnailGenerator
+            )
         case .audio:
             return AudioTrackMediaView(frame: frame, clip: clip, pixelsPerSecond: pixelsPerSecond)
         case .image:
@@ -176,5 +150,16 @@ extension TimelineTrackView: TrackMediaViewDelegate {
         guard track.clips.indices.contains(view.tag) else { return }
         track.clips[view.tag].timelineRange = range
         currentTrack = track
+    }
+}
+
+private extension MediaTrack.TrackType {
+    var laneHeight: CGFloat {
+        switch self {
+        case .video:
+            return 60
+        case .audio, .overlay:
+            return 36
+        }
     }
 }

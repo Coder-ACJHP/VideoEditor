@@ -49,3 +49,14 @@ nonisolated struct MediaTrack: Identifiable, Codable, Sendable {
         self.volume = volume
     }
 }
+
+extension MediaTrack.TrackType {
+    var timelineLaneHeight: CGFloat {
+        switch self {
+        case .video:
+            return 60
+        case .audio, .overlay:
+            return 36
+        }
+    }
+}

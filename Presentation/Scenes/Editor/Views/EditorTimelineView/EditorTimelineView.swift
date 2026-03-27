@@ -39,8 +39,8 @@ import CoreMedia
 protocol EditorTimelineViewDelegate: AnyObject {
     /// Fired while the user scrubs the timeline. `seconds` is clamped to ≥ 0.
     func timelineView(_ timeline: EditorTimelineView, didScrubToTime seconds: Double)
-    /// Fired when the user taps a clip block. Use the kind to build a context sub menu.
-    func timelineView(_ timeline: EditorTimelineView, didSelectTrackKind kind: TimelineTrackView.Kind)
+    /// Fired when the user taps a clip block. Use the type to build a context sub menu.
+    func timelineView(_ timeline: EditorTimelineView, didSelectTrackType type: MediaTrack.TrackType)
 }
 
 // MARK: - EditorTimelineView
@@ -63,15 +63,16 @@ final class EditorTimelineView: UIView {
     static let preferredHeight: CGFloat = {
         Layout.rulerHeight
         + Layout.trackPadding
-        + TimelineTrackView.Kind.audio.height
+        + MediaTrack.TrackType.audio.timelineLaneHeight
         + Layout.trackSpacing
-        + TimelineTrackView.Kind.video.height
+        + MediaTrack.TrackType.video.timelineLaneHeight
         + Layout.trackPadding
     }()
 
     // MARK: - Public
 
     weak var delegate: EditorTimelineViewDelegate?
+    private let thumbnailGenerator: ThumbnailGenerating
 
     // MARK: - Scroll Views
 
@@ -140,7 +141,8 @@ final class EditorTimelineView: UIView {
 
     // MARK: - Init
 
-    override init(frame: CGRect) {
+    init(frame: CGRect = .zero, thumbnailGenerator: ThumbnailGenerating) {
+        self.thumbnailGenerator = thumbnailGenerator
         super.init(frame: frame)
         setupView()
     }
@@ -361,21 +363,21 @@ final class EditorTimelineView: UIView {
         let orderedTracks = overlays + (audios.isEmpty ? [nil] : audios.map { Optional($0) }) + (videos.isEmpty ? [nil] : videos.map { Optional($0) })
 
         for maybeTrack in orderedTracks {
-            let kind: TimelineTrackView.Kind
+            let trackType: MediaTrack.TrackType
             let model: MediaTrack?
 
             if let track = maybeTrack {
-                kind = track.displayKind
+                trackType = track.trackType
                 model = track
             } else {
                 // Placeholder lanes keep base timeline structure always visible.
-                kind = dynamicTrackViews.contains(where: { $0.kind == .audio }) ? .video : .audio
+                trackType = dynamicTrackViews.contains(where: { $0.trackType == .audio }) ? .video : .audio
                 model = nil
             }
 
-            let lane = TimelineTrackView(kind: kind)
+            let lane = TimelineTrackView(trackType: trackType, thumbnailGenerator: thumbnailGenerator)
             lane.delegate = self
-            lane.heightAnchor.constraint(equalToConstant: kind.height).isActive = true
+            lane.heightAnchor.constraint(equalToConstant: trackType.timelineLaneHeight).isActive = true
             lane.configure(with: model, pixelsPerSecond: Layout.pixelsPerSecond)
             tracksStackView.addArrangedSubview(lane)
             dynamicTrackViews.append(lane)
@@ -399,7 +401,7 @@ final class EditorTimelineView: UIView {
     }
 
     private func focusVideoLaneNearCenter(animated: Bool) {
-        guard let videoLane = dynamicTrackViews.last(where: { $0.kind == .video }) else { return }
+        guard let videoLane = dynamicTrackViews.last(where: { $0.trackType == .video }) else { return }
         layoutIfNeeded()
 
         let frameInContent = tracksContentView.convert(videoLane.frame, from: tracksStackView)
@@ -441,30 +443,6 @@ extension EditorTimelineView: UIScrollViewDelegate {
 extension EditorTimelineView: TimelineTrackViewDelegate {
 
     func trackView(_ view: TimelineTrackView, didTapClipAt index: Int) {
-        delegate?.timelineView(self, didSelectTrackKind: view.kind)
-    }
-}
-
-// MARK: - MediaTrack convenience
-
-private extension MediaTrack {
-    /// Convenience alias so the timeline can ask for track kind without
-    /// caring about the full TrackType enum used by the domain model.
-    var kind: TimelineTrackView.Kind? {
-        switch trackType {
-        case .video:   return .video
-        case .audio:   return .audio
-        case .overlay: return nil   // handled separately in a future phase
-        }
-    }
-
-    var displayKind: TimelineTrackView.Kind {
-        switch trackType {
-        case .video: return .video
-        case .audio: return .audio
-        case .overlay:
-            // Non-video lanes (sticker/filter/overlay proxies) stay compact like audio lanes.
-            return .audio
-        }
+        delegate?.timelineView(self, didSelectTrackType: view.trackType)
     }
 }

@@ -29,6 +29,7 @@ final class EditorViewController: UIViewController {
 
     private let router:  RouterDelegate
     private let project: EditingProject
+    private let thumbnailGenerator: ThumbnailGenerating
     private var workingTracks: [MediaTrack]
 
     // MARK: - UI Components
@@ -36,7 +37,7 @@ final class EditorViewController: UIViewController {
     private let navigationBar = EditorNavigationBar()
     private let renderView    = EditorRenderView()
     private let toolbarView   = EditorToolbarView()
-    private let timelineView  = EditorTimelineView()
+    private lazy var timelineView  = EditorTimelineView(thumbnailGenerator: thumbnailGenerator)
     private let featuresView  = EditorFeaturesView()
 
     // MARK: - Layout
@@ -48,9 +49,14 @@ final class EditorViewController: UIViewController {
 
     // MARK: - Init
 
-    init(router: RouterDelegate, project: EditingProject) {
+    init(
+        router: RouterDelegate,
+        project: EditingProject,
+        thumbnailGenerator: ThumbnailGenerating
+    ) {
         self.router  = router
         self.project = project
+        self.thumbnailGenerator = thumbnailGenerator
         self.workingTracks = project.tracks
         super.init(nibName: nil, bundle: nil)
     }
@@ -262,9 +268,8 @@ extension EditorViewController: EditorTimelineViewDelegate {
         // TODO: Seek the playback engine to `seconds`.
     }
 
-    func timelineView(_ timeline: EditorTimelineView, didSelectTrackKind kind: TimelineTrackView.Kind) {
-        let trackType: MediaTrack.TrackType = kind == .video ? .video : .audio
-        featuresView.showSubMenu(items: FeatureItem.subMenuItems(for: trackType), animated: true)
+    func timelineView(_ timeline: EditorTimelineView, didSelectTrackType type: MediaTrack.TrackType) {
+        featuresView.showSubMenu(items: FeatureItem.subMenuItems(for: type), animated: true)
     }
 }
 

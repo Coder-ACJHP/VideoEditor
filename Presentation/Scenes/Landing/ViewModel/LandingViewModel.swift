@@ -41,27 +41,9 @@ final class LandingViewModel {
     }
     
     func loadStoredProjects() {
-        allProjects = [
-            EditingProject(
-                id: UUID(),
-                name: "Mock Project 1",
-                creationDate: Date.now,
-                lastModifiedDate: Date.now,
-                tracks: [
-                    MediaTrack(
-                        id: UUID(),
-                        trackType: .video,
-                        clips: [
-                            MediaClip(imageAsset: .image(Bundle.main.resourceURL!.appendingPathComponent("img1.jpg")), timelineOffset: 0, duration: .zero)
-                        ],
-                        isMuted: true,
-                        volume: .zero
-                    )
-                ],
-                exportSettings: ExportSettings.default
-            )
-        ]
-        projects = allProjects
+        // Persistence integration is pending; keep startup list empty instead of mock data.
+        allProjects = []
+        applySortAndPublish()
     }
 
     func deleteProject(id: UUID) {

@@ -8,8 +8,17 @@ import AVFoundation
 
 final class VideoTrackMediaView: TrackMediaView {
     private let imageView = UIImageView()
-    private static let cache = NSCache<NSString, UIImage>()
+    private let thumbnailGenerator: ThumbnailGenerating
 
+    init (frame: CGRect, clip: MediaClip, pixelsPerSecond: CGFloat, thumbnailGenerator: ThumbnailGenerating) {
+        self.thumbnailGenerator = thumbnailGenerator
+        super.init(frame: frame, clip: clip, pixelsPerSecond: pixelsPerSecond)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
     override func setupMediaContent() {
         contentView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.2)
         imageView.contentMode = .scaleAspectFill
@@ -26,22 +35,24 @@ final class VideoTrackMediaView: TrackMediaView {
     }
 
     private func loadThumbnailIfNeeded() {
-        guard case .video(let url) = clip.asset else { return }
-        let key = url.absoluteString as NSString
-        if let cached = Self.cache.object(forKey: key) {
-            imageView.image = cached
-            return
-        }
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let asset = AVURLAsset(url: url)
-            let generator = AVAssetImageGenerator(asset: asset)
-            generator.appliesPreferredTrackTransform = true
-            let cgImage = try? generator.copyCGImage(at: .zero, actualTime: nil)
-            guard let cgImage else { return }
-            let image = UIImage(cgImage: cgImage)
-            Self.cache.setObject(image, forKey: key)
-            DispatchQueue.main.async {
-                self?.imageView.image = image
+        guard clip.asset.mediaType == .video else { return }
+        
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+
+            // Defer size resolution until layout has occurred; fall back to a
+            // reasonable default if the cell hasn't been laid out yet.
+            let bounds = imageView.bounds
+            let scale  = UIScreen.main.scale
+            let size   = bounds.width > 0
+                ? CGSize(width: bounds.width * scale, height: bounds.height * scale)
+                : CGSize(width: 120, height: 120)
+
+            let image = await thumbnailGenerator.thumbnail(for: clip.asset, size: size)
+            guard !Task.isCancelled else { return }
+
+            if let image {
+                imageView.image = image
             }
         }
     }

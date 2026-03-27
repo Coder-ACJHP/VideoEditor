@@ -1,16 +1,18 @@
 //
-//  VideoTrackMediaView.swift
+//  ImageTrackMediaView.swift
 //  VideoEditor
 //
-//  Requests per-second thumbnails via ThumbnailGenerating and tiles them
-//  horizontally across the clip width. Each tile represents ~1 second of footage.
+//  Loads the source image once, then tiles it horizontally across the
+//  clip duration (one tile per second). Visually identical to the video
+//  tile approach but every tile shows the same still image.
 
 import UIKit
 
-final class VideoTrackMediaView: TrackMediaView {
+final class ImageTrackMediaView: TrackMediaView {
 
     private let thumbnailGenerator: ThumbnailGenerating
     private var tileImageViews: [UIImageView] = []
+    private var loadedImage: UIImage?
 
     init(frame: CGRect, clip: MediaClip, pixelsPerSecond: CGFloat, thumbnailGenerator: ThumbnailGenerating) {
         self.thumbnailGenerator = thumbnailGenerator
@@ -24,7 +26,7 @@ final class VideoTrackMediaView: TrackMediaView {
     override func setupMediaContent() {
         contentView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.15)
         rebuildTiles()
-        loadThumbnails()
+        loadThumbnail()
     }
 
     override func layoutSubviews() {
@@ -62,12 +64,14 @@ final class VideoTrackMediaView: TrackMediaView {
         let h = contentView.bounds.height
         for (i, tile) in tileImageViews.enumerated() {
             tile.frame = CGRect(x: CGFloat(i) * w, y: 0, width: w, height: h)
+            tile.image = loadedImage ?? tile.image
         }
     }
 
     private func syncTileViewCount(to count: Int) {
         while tileImageViews.count < count {
             let iv = makeTileImageView()
+            iv.image = loadedImage ?? iv.image
             contentView.addSubview(iv)
             tileImageViews.append(iv)
         }
@@ -81,38 +85,24 @@ final class VideoTrackMediaView: TrackMediaView {
         iv.contentMode = .scaleAspectFill
         iv.clipsToBounds = true
         iv.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.25)
-        iv.image = UIImage(systemName: "video.fill")
+        iv.image = UIImage(systemName: "photo")
         iv.tintColor = .white.withAlphaComponent(0.3)
         return iv
     }
 
     // MARK: - Thumbnail Loading
 
-    private func loadThumbnails() {
-        guard clip.asset.mediaType == .video else { return }
+    private func loadThumbnail() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let h = contentView.bounds.height > 0 ? contentView.bounds.height : 60
+            let scale = UIScreen.main.scale
+            let size = CGSize(width: tileWidth * scale, height: h * scale)
 
-        let duration = clip.timelineRange.durationSeconds
-        let count = max(Int(ceil(duration)), 1)
-        let tileHeight = contentView.bounds.height > 0 ? contentView.bounds.height : 60
-        let scale = UIScreen.main.scale
-        let requestSize = CGSize(width: tileWidth * scale, height: tileHeight * scale)
-
-        for i in 0..<count {
-            let timeSeconds = Double(i) + 0.5
-            let tileIndex = i
-
-            Task { @MainActor [weak self] in
-                guard let self, tileIndex < self.tileImageViews.count else { return }
-                let image = await thumbnailGenerator.videoFrame(
-                    for: clip.asset,
-                    at: timeSeconds,
-                    size: requestSize
-                )
-                guard !Task.isCancelled, tileIndex < self.tileImageViews.count else { return }
-                if let image {
-                    self.tileImageViews[tileIndex].image = image
-                }
-            }
+            let image = await thumbnailGenerator.thumbnail(for: clip.asset, size: size)
+            guard !Task.isCancelled else { return }
+            loadedImage = image
+            tileImageViews.forEach { $0.image = image ?? UIImage(systemName: "photo") }
         }
     }
 }

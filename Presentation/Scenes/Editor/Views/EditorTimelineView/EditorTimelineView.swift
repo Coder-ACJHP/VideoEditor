@@ -363,16 +363,17 @@ final class EditorTimelineView: UIView {
         let orderedTracks = overlays + (audios.isEmpty ? [nil] : audios.map { Optional($0) }) + (videos.isEmpty ? [nil] : videos.map { Optional($0) })
 
         for maybeTrack in orderedTracks {
-            let trackType: MediaTrack.TrackType
+
             let model: MediaTrack?
+            let trackType: MediaTrack.TrackType
 
             if let track = maybeTrack {
-                trackType = track.trackType
                 model = track
+                trackType = track.trackType
             } else {
                 // Placeholder lanes keep base timeline structure always visible.
-                trackType = dynamicTrackViews.contains(where: { $0.trackType == .audio }) ? .video : .audio
                 model = nil
+                trackType = dynamicTrackViews.contains(where: { $0.trackType == .audio }) ? .video : .audio
             }
 
             let lane = TimelineTrackView(trackType: trackType, thumbnailGenerator: thumbnailGenerator)

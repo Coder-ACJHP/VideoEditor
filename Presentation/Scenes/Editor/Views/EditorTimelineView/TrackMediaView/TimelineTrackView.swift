@@ -52,8 +52,6 @@ final class TimelineTrackView: UIView {
 
     // MARK: - Configuration
 
-    /// Rebuilds the clip views from the given track model.
-    /// Pass `nil` to show an empty lane (e.g. no audio has been added yet).
     func configure(with track: MediaTrack?, pixelsPerSecond pxPerSec: CGFloat) {
         self.pixelsPerSecond = pxPerSec
         self.currentTrack = track
@@ -77,7 +75,6 @@ final class TimelineTrackView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         maxTrackDuration = max(Double(bounds.width / max(pixelsPerSecond, 1)), 0)
-        // Re-apply clip view heights whenever the track itself is resized.
         clipViews.forEach {
             guard let mediaView = $0 as? TrackMediaView else { return }
             mediaView.updateTrackLimits(maxDuration: maxTrackDuration)
@@ -92,7 +89,6 @@ final class TimelineTrackView: UIView {
     private func makeClipView(for clip: MediaClip, at index: Int) -> UIView {
         let xPos   = CGFloat(clip.timelineRange.startSeconds)    * pixelsPerSecond
         let width  = CGFloat(clip.timelineRange.durationSeconds) * pixelsPerSecond
-        // Guard against 0-duration clips (e.g. freshly imported stills before user edits).
         let safeW  = max(width, 48)
         let frame = CGRect(
             x:      xPos,
@@ -121,10 +117,18 @@ final class TimelineTrackView: UIView {
                 thumbnailGenerator: thumbnailGenerator
             )
         case .audio:
-            return AudioTrackMediaView(frame: frame, clip: clip, pixelsPerSecond: pixelsPerSecond)
+            return AudioTrackMediaView(
+                frame: frame,
+                clip: clip,
+                pixelsPerSecond: pixelsPerSecond
+            )
         case .image:
-            // Image clips are represented as sticker-like visual blocks.
-            return StickerTrackMediaView(frame: frame, clip: clip, pixelsPerSecond: pixelsPerSecond)
+            return ImageTrackMediaView(
+                frame: frame,
+                clip: clip,
+                pixelsPerSecond: pixelsPerSecond,
+                thumbnailGenerator: thumbnailGenerator
+            )
         }
     }
 }

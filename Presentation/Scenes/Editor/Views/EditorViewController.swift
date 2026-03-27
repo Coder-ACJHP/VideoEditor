@@ -37,8 +37,10 @@ final class EditorViewController: UIViewController {
     private let navigationBar = EditorNavigationBar()
     private let renderView    = EditorRenderView()
     private let toolbarView   = EditorToolbarView()
-    private lazy var timelineView  = EditorTimelineView(thumbnailGenerator: thumbnailGenerator)
     private let featuresView  = EditorFeaturesView()
+    private lazy var timelineView  = EditorTimelineView(
+        thumbnailGenerator: thumbnailGenerator
+    )
 
     // MARK: - Layout
 

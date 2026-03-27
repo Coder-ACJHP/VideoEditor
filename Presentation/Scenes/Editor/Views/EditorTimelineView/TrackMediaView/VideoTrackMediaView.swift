@@ -32,6 +32,11 @@ final class VideoTrackMediaView: TrackMediaView {
         layoutTiles()
     }
 
+    override func didFinishTrimming() {
+        rebuildTiles()
+        loadThumbnails()
+    }
+
     // MARK: - Tiling
 
     private var tileWidth: CGFloat {
@@ -91,14 +96,15 @@ final class VideoTrackMediaView: TrackMediaView {
     private func loadThumbnails() {
         guard clip.asset.mediaType == .video else { return }
 
-        let duration = clip.timelineRange.durationSeconds
+        let sourceOffset = sourceRange.startSeconds
+        let duration = sourceRange.durationSeconds
         let count = max(Int(ceil(duration)), 1)
         let tileHeight = contentView.bounds.height > 0 ? contentView.bounds.height : 60
         let scale = UIScreen.main.scale
         let requestSize = CGSize(width: tileWidth * scale, height: tileHeight * scale)
 
         for i in 0..<count {
-            let timeSeconds = Double(i) + 0.5
+            let timeSeconds = sourceOffset + Double(i) + 0.5
             let tileIndex = i
 
             Task { @MainActor [weak self] in

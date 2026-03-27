@@ -486,8 +486,23 @@ extension EditorTimelineView: TimelineTrackViewDelegate {
         delegate?.timelineView(self, didSelectClipWithMediaType: mediaType)
     }
 
+    func trackViewDidDeselectClip(_ view: TimelineTrackView) {
+        delegate?.timelineViewDidDeselectAll(self)
+    }
+
     func trackView(_ view: TimelineTrackView, didRequestTimelineExtensionTo newDuration: Double) {
-        let tracksWidth = CGFloat(newDuration) * config.pixelsPerSecond
+        resizeTimeline(to: newDuration)
+        delegate?.timelineView(self, didExtendDurationTo: newDuration)
+    }
+
+    func trackView(_ view: TimelineTrackView, didRequestTimelineShrinkTo newDuration: Double) {
+        let safeDuration = max(newDuration, config.minimumProjectDuration)
+        resizeTimeline(to: safeDuration)
+        delegate?.timelineView(self, didExtendDurationTo: safeDuration)
+    }
+
+    private func resizeTimeline(to duration: Double) {
+        let tracksWidth = CGFloat(duration) * config.pixelsPerSecond
         let rulerWidth  = tracksWidth + (config.horizontalEdgePadding * 2)
 
         tracksContentWidthConstraint?.constant = tracksWidth
@@ -495,7 +510,5 @@ extension EditorTimelineView: TimelineTrackViewDelegate {
 
         rulerView.setNeedsDisplay()
         layoutIfNeeded()
-
-        delegate?.timelineView(self, didExtendDurationTo: newDuration)
     }
 }

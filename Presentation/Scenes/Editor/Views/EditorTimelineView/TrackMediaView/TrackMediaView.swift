@@ -7,7 +7,10 @@ import UIKit
 
 protocol TrackMediaViewDelegate: AnyObject {
     func trackMediaViewDidToggleSelection(_ view: TrackMediaView)
-    func trackMediaView(_ view: TrackMediaView, didChangeTimelineRange range: ClipTimeRange)
+    func trackMediaView(_ view: TrackMediaView, didChangeTimelineRange range: ClipTimeRange, sourceRange: ClipTimeRange, allowExtension: Bool)
+    /// Called when a left-trim gesture on the master track finishes,
+    /// so the track can snap clips back to contiguous positions.
+    func trackMediaViewDidFinishLeftTrim(_ view: TrackMediaView)
 }
 
 class TrackMediaView: UIView {
@@ -18,9 +21,15 @@ class TrackMediaView: UIView {
 
     let clip: MediaClip
     let pixelsPerSecond: CGFloat
+    private(set) var isSelected = false
+    /// When true, center drag is disabled and contiguity is enforced.
+    var isMasterTrack = false
     var contentView: UIView { mediaContainerView }
 
     private var timelineRange: ClipTimeRange
+    private(set) var sourceRange: ClipTimeRange
+    /// The total source asset duration — upper bound for video trim.
+    private let maxSourceEnd: Double
     private var maxTrackDuration: Double = 0
 
     private lazy var panGesture = UIPanGestureRecognizer(target: self, action: #selector(handleMovePan(_:)))
@@ -29,6 +38,7 @@ class TrackMediaView: UIView {
 
     private var initialFrame: CGRect = .zero
     private var initialRange: ClipTimeRange = .zero
+    private var initialSourceRange: ClipTimeRange = .zero
 
     private let mediaContainerView = UIView()
     private let selectionBorderView = UIView()
@@ -40,6 +50,8 @@ class TrackMediaView: UIView {
         self.clip = clip
         self.pixelsPerSecond = max(pixelsPerSecond, 1)
         self.timelineRange = clip.timelineRange
+        self.sourceRange = clip.sourceRange
+        self.maxSourceEnd = clip.sourceRange.endSeconds
         super.init(frame: frame)
         setupView()
         updateDurationLabel()
@@ -60,10 +72,15 @@ class TrackMediaView: UIView {
     }
 
     func setSelected(_ selected: Bool) {
+        isSelected = selected
         selectionBorderView.isHidden = !selected
         durationLabel.isHidden = !selected
         leftHandle.isHidden = !selected
         rightHandle.isHidden = !selected
+
+        leftHandlePan.isEnabled = selected
+        rightHandlePan.isEnabled = selected
+        panGesture.isEnabled = selected && !isMasterTrack
     }
 
     func applyTimelineRange(_ range: ClipTimeRange) {
@@ -76,6 +93,10 @@ class TrackMediaView: UIView {
     }
 
     func setupMediaContent() {}
+
+    /// Called after a trim gesture ends so subclasses can update
+    /// visual content (e.g. reload thumbnails with the new source offset).
+    func didFinishTrimming() {}
 
     private func setupView() {
         clipsToBounds = false
@@ -138,29 +159,45 @@ class TrackMediaView: UIView {
     @objc private func handleMovePan(_ gesture: UIPanGestureRecognizer) {
         switch gesture.state {
         case .began:
+            guard timelineRange.durationSeconds < maxTrackDuration else {
+                gesture.state = .cancelled
+                return
+            }
             initialFrame = frame
             initialRange = timelineRange
         case .changed:
             let tx = gesture.translation(in: superview).x
-            let x = max(initialFrame.origin.x + tx, 0)
+            let trackWidthPx = CGFloat(maxTrackDuration) * pixelsPerSecond
+            let maxOriginX = max(trackWidthPx - frame.width, 0)
+            let x = min(max(initialFrame.origin.x + tx, 0), maxOriginX)
             frame.origin.x = x
             timelineRange.startSeconds = Double(x / pixelsPerSecond)
-            notifyRangeChanged()
+            notifyRangeChanged(allowExtension: false)
         default:
             break
         }
     }
 
     @objc private func handleLeftTrimPan(_ gesture: UIPanGestureRecognizer) {
+        let isVideo = clip.asset.mediaType == .video
         switch gesture.state {
         case .began:
             initialFrame = frame
             initialRange = timelineRange
+            initialSourceRange = sourceRange
         case .changed:
             let tx = gesture.translation(in: superview).x
             let minWidth = CGFloat(config.minClipDuration) * pixelsPerSecond
+
+            let minClampedX: CGFloat
+            if isVideo {
+                minClampedX = max(0, initialFrame.minX - CGFloat(initialSourceRange.startSeconds) * pixelsPerSecond)
+            } else {
+                minClampedX = 0
+            }
+
             let maxX = initialFrame.maxX - minWidth
-            let clampedX = min(max(initialFrame.minX + tx, 0), maxX)
+            let clampedX = min(max(initialFrame.minX + tx, minClampedX), maxX)
             let newWidth = initialFrame.maxX - clampedX
             frame.origin.x = clampedX
             frame.size.width = newWidth
@@ -168,33 +205,64 @@ class TrackMediaView: UIView {
             let startDeltaSeconds = Double((clampedX - initialFrame.minX) / pixelsPerSecond)
             timelineRange.startSeconds = initialRange.startSeconds + startDeltaSeconds
             timelineRange.durationSeconds = max(Double(newWidth / pixelsPerSecond), config.minClipDuration)
-            notifyRangeChanged()
+
+            if isVideo {
+                sourceRange.startSeconds = max(initialSourceRange.startSeconds + startDeltaSeconds, 0)
+                sourceRange.durationSeconds = timelineRange.durationSeconds
+            }
+
+            // On the master track, defer contiguity until gesture ends
+            // so the user visually sees the left edge moving.
+            notifyRangeChanged(allowExtension: !isMasterTrack)
+        case .ended, .cancelled:
+            if isMasterTrack {
+                delegate?.trackMediaViewDidFinishLeftTrim(self)
+            }
+            didFinishTrimming()
         default:
             break
         }
     }
 
     @objc private func handleRightTrimPan(_ gesture: UIPanGestureRecognizer) {
+        let isVideo = clip.asset.mediaType == .video
         switch gesture.state {
         case .began:
             initialFrame = frame
             initialRange = timelineRange
+            initialSourceRange = sourceRange
         case .changed:
             let tx = gesture.translation(in: superview).x
             let minWidth = CGFloat(config.minClipDuration) * pixelsPerSecond
             let candidateWidth = initialFrame.width + tx
-            let newWidth = max(candidateWidth, minWidth)
+
+            let maxWidth: CGFloat
+            if isVideo {
+                let maxDuration = maxSourceEnd - sourceRange.startSeconds
+                maxWidth = CGFloat(maxDuration) * pixelsPerSecond
+            } else {
+                maxWidth = .greatestFiniteMagnitude
+            }
+
+            let newWidth = min(max(candidateWidth, minWidth), maxWidth)
             frame.size.width = newWidth
             timelineRange.durationSeconds = max(Double(newWidth / pixelsPerSecond), config.minClipDuration)
-            notifyRangeChanged()
+
+            if isVideo {
+                sourceRange.durationSeconds = timelineRange.durationSeconds
+            }
+
+            notifyRangeChanged(allowExtension: true)
+        case .ended, .cancelled:
+            didFinishTrimming()
         default:
             break
         }
     }
 
-    private func notifyRangeChanged() {
+    private func notifyRangeChanged(allowExtension: Bool) {
         updateDurationLabel()
         setNeedsLayout()
-        delegate?.trackMediaView(self, didChangeTimelineRange: timelineRange)
+        delegate?.trackMediaView(self, didChangeTimelineRange: timelineRange, sourceRange: sourceRange, allowExtension: allowExtension)
     }
 }

@@ -128,7 +128,7 @@ final class EditorFeaturesView: UIView {
         let sv = UIStackView()
         sv.axis = .horizontal
         sv.alignment = .center
-        sv.spacing = 0
+        sv.spacing = 5
         sv.translatesAutoresizingMaskIntoConstraints = false
         return sv
     }()
@@ -171,7 +171,7 @@ final class EditorFeaturesView: UIView {
         let sv = UIStackView()
         sv.axis = .horizontal
         sv.alignment = .center
-        sv.spacing = 0
+        sv.spacing = 5
         sv.translatesAutoresizingMaskIntoConstraints = false
         return sv
     }()
@@ -263,7 +263,7 @@ final class EditorFeaturesView: UIView {
     }
     
     private func makeItemButton(for item: FeatureItem) -> UIButton {
-        let symConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
+        let symConfig = UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold)
         var config = UIButton.Configuration.plain()
         config.image = item.icon?.withConfiguration(symConfig)
         config.title = item.title

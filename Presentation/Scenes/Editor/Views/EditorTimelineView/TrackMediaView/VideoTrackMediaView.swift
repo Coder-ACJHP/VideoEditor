@@ -22,7 +22,7 @@ final class VideoTrackMediaView: TrackMediaView {
     }
 
     override func setupMediaContent() {
-        contentView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.15)
+        contentView.backgroundColor = TimelineConfiguration.default.videoTrackColor
         rebuildTiles()
         loadThumbnails()
     }
@@ -80,7 +80,7 @@ final class VideoTrackMediaView: TrackMediaView {
         let iv = UIImageView()
         iv.contentMode = .scaleAspectFill
         iv.clipsToBounds = true
-        iv.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.25)
+        iv.backgroundColor = TimelineConfiguration.default.videoTilePlaceholderColor
         iv.image = UIImage(systemName: "video.fill")
         iv.tintColor = .white.withAlphaComponent(0.3)
         return iv

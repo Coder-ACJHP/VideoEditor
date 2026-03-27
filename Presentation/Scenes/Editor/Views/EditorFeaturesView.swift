@@ -30,50 +30,45 @@ struct FeatureItem: Equatable {
     let icon: UIImage?
     /// When `true`, the icon is tinted with `.systemYellow` to signal an active state.
     var isActive: Bool = false
-
+    
     static func == (lhs: FeatureItem, rhs: FeatureItem) -> Bool { lhs.id == rhs.id }
 }
 
 // MARK: - FeatureItem Static Libraries
 
 extension FeatureItem {
-
+    
     /// Items shown when no clip is selected (the default state).
     static var mainMenuItems: [FeatureItem] { [
         FeatureItem(id: "audio",    title: "Audio",    icon: UIImage(systemName: "music.note")),
         FeatureItem(id: "text",     title: "Text",     icon: UIImage(systemName: "textformat")),
-        FeatureItem(id: "voice",    title: "Voice",    icon: UIImage(systemName: "mic")),
         FeatureItem(id: "sticker",  title: "Sticker",  icon: UIImage(systemName: "face.smiling")),
-        FeatureItem(id: "filters",  title: "Filters",  icon: UIImage(systemName: "camera.filters")),
-        FeatureItem(id: "adjust",   title: "Adjust",   icon: UIImage(systemName: "slider.horizontal.3")),
-        FeatureItem(id: "speed",    title: "Speed",    icon: UIImage(systemName: "gauge")),
-        FeatureItem(id: "effects",  title: "Effects",  icon: UIImage(systemName: "sparkles")),
-        FeatureItem(id: "captions", title: "Captions", icon: UIImage(systemName: "captions.bubble")),
     ] }
-
-    /// Items shown when a clip of the given track type is tapped in the timeline.
-    static func subMenuItems(for trackType: MediaTrack.TrackType) -> [FeatureItem] {
-        switch trackType {
-        case .video:
-            return [
-                FeatureItem(id: "split",     title: "Split",     icon: UIImage(systemName: "scissors")),
-                FeatureItem(id: "adjust",    title: "Adjust",    icon: UIImage(systemName: "slider.horizontal.3")),
-                FeatureItem(id: "duplicate", title: "Duplicate", icon: UIImage(systemName: "doc.on.doc")),
-                FeatureItem(id: "delete",    title: "Delete",    icon: UIImage(systemName: "trash")),
-            ]
-        case .audio:
-            return [
-                FeatureItem(id: "volume",    title: "Volume",    icon: UIImage(systemName: "speaker.wave.2")),
-                FeatureItem(id: "fade",      title: "Fade",      icon: UIImage(systemName: "waveform")),
-                FeatureItem(id: "duplicate", title: "Duplicate", icon: UIImage(systemName: "doc.on.doc")),
-                FeatureItem(id: "delete",    title: "Delete",    icon: UIImage(systemName: "trash")),
-            ]
-        case .overlay:
-            return [
-                FeatureItem(id: "adjust",    title: "Adjust",    icon: UIImage(systemName: "slider.horizontal.3")),
-                FeatureItem(id: "duplicate", title: "Duplicate", icon: UIImage(systemName: "doc.on.doc")),
-                FeatureItem(id: "delete",    title: "Delete",    icon: UIImage(systemName: "trash")),
-            ]
+    
+    /// Items shown when a clip is tapped in the timeline.
+    /// Uses the clip's media type to determine available operations.
+    static func subMenuItems(for mediaType: AssetIdentifier.MediaType) -> [FeatureItem] {
+        switch mediaType {
+            case .video:
+                return [
+                    FeatureItem(id: "volume",    title: "Volume",    icon: UIImage(systemName: "speaker.wave.2")),
+                    FeatureItem(id: "split",     title: "Split",     icon: UIImage(systemName: "scissors")),
+                    FeatureItem(id: "duplicate", title: "Duplicate", icon: UIImage(systemName: "doc.on.doc")),
+                    FeatureItem(id: "delete",    title: "Delete",    icon: UIImage(systemName: "trash")),
+                ]
+            case .image:
+                return [
+                    FeatureItem(id: "duration",  title: "Duration",  icon: UIImage(systemName: "timer")),
+                    FeatureItem(id: "duplicate", title: "Duplicate", icon: UIImage(systemName: "doc.on.doc")),
+                    FeatureItem(id: "delete",    title: "Delete",    icon: UIImage(systemName: "trash")),
+                ]
+            case .audio:
+                return [
+                    FeatureItem(id: "volume",    title: "Volume",    icon: UIImage(systemName: "speaker.wave.2")),
+                    FeatureItem(id: "split",     title: "Split",     icon: UIImage(systemName: "scissors")),
+                    FeatureItem(id: "duplicate", title: "Duplicate", icon: UIImage(systemName: "doc.on.doc")),
+                    FeatureItem(id: "delete",    title: "Delete",    icon: UIImage(systemName: "trash")),
+                ]
         }
     }
 }
@@ -90,33 +85,33 @@ protocol EditorFeaturesViewDelegate: AnyObject {
 // MARK: - EditorFeaturesView
 
 final class EditorFeaturesView: UIView {
-
+    
     // MARK: - Constants
-
+    
     /// Fixed height for the interactive content area.
     /// Pin the view's bottomAnchor to safeAreaLayoutGuide.bottomAnchor in the parent.
     static let preferredHeight: CGFloat = 60
-
+    
     // MARK: - Public
-
+    
     weak var delegate: EditorFeaturesViewDelegate?
     private(set) var isShowingSubMenu = false
-
+    
     // MARK: - State
-
+    
     private var currentSubItems: [FeatureItem] = []
-
+    
     // MARK: - Separator
-
+    
     private lazy var separatorView: UIView = {
         let v = UIView()
         v.backgroundColor = .systemGray5
         v.translatesAutoresizingMaskIntoConstraints = false
         return v
     }()
-
+    
     // MARK: - Main Panel
-
+    
     private lazy var mainScrollView: UIScrollView = {
         let sv = UIScrollView()
         sv.showsHorizontalScrollIndicator = false
@@ -128,7 +123,7 @@ final class EditorFeaturesView: UIView {
         sv.translatesAutoresizingMaskIntoConstraints = false
         return sv
     }()
-
+    
     private lazy var mainStack: UIStackView = {
         let sv = UIStackView()
         sv.axis = .horizontal
@@ -137,9 +132,9 @@ final class EditorFeaturesView: UIView {
         sv.translatesAutoresizingMaskIntoConstraints = false
         return sv
     }()
-
+    
     // MARK: - Sub Panel
-
+    
     private lazy var subContainer: UIView = {
         let v = UIView()
         v.alpha = 0
@@ -147,7 +142,7 @@ final class EditorFeaturesView: UIView {
         v.translatesAutoresizingMaskIntoConstraints = false
         return v
     }()
-
+    
     private lazy var backButton: UIButton = {
         let symConfig = UIImage.SymbolConfiguration(pointSize: 17, weight: .semibold)
         var config = UIButton.Configuration.plain()
@@ -160,7 +155,7 @@ final class EditorFeaturesView: UIView {
         btn.accessibilityLabel = "Back to main menu"
         return btn
     }()
-
+    
     private lazy var subScrollView: UIScrollView = {
         let sv = UIScrollView()
         sv.showsHorizontalScrollIndicator = false
@@ -171,7 +166,7 @@ final class EditorFeaturesView: UIView {
         sv.translatesAutoresizingMaskIntoConstraints = false
         return sv
     }()
-
+    
     private lazy var subStack: UIStackView = {
         let sv = UIStackView()
         sv.axis = .horizontal
@@ -180,47 +175,47 @@ final class EditorFeaturesView: UIView {
         sv.translatesAutoresizingMaskIntoConstraints = false
         return sv
     }()
-
+    
     // MARK: - Init
-
+    
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupView()
         populate(stack: mainStack, with: FeatureItem.mainMenuItems)
     }
-
+    
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
+    
     // MARK: - Private Setup
-
+    
     private func setupView() {
         backgroundColor = .systemBackground
         translatesAutoresizingMaskIntoConstraints = false
-
+        
         addSubview(separatorView)
         setupMainPanel()
         setupSubPanel()
     }
-
+    
     private func setupMainPanel() {
         mainScrollView.delegate = self
         addSubview(mainScrollView)
         mainScrollView.addSubview(mainStack)
-
+        
         NSLayoutConstraint.activate([
             separatorView.topAnchor.constraint(equalTo: topAnchor),
             separatorView.leadingAnchor.constraint(equalTo: leadingAnchor),
             separatorView.trailingAnchor.constraint(equalTo: trailingAnchor),
             separatorView.heightAnchor.constraint(lessThanOrEqualToConstant: 0.5),
-//            separatorView.heightAnchor.constraint(equalToConstant: 0.5),
-
+            //            separatorView.heightAnchor.constraint(equalToConstant: 0.5),
+            
             mainScrollView.topAnchor.constraint(equalTo: separatorView.bottomAnchor),
             mainScrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             mainScrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
             mainScrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
-
+            
             mainStack.topAnchor.constraint(equalTo: mainScrollView.contentLayoutGuide.topAnchor),
             mainStack.bottomAnchor.constraint(equalTo: mainScrollView.contentLayoutGuide.bottomAnchor),
             mainStack.leadingAnchor.constraint(equalTo: mainScrollView.contentLayoutGuide.leadingAnchor),
@@ -228,30 +223,30 @@ final class EditorFeaturesView: UIView {
             mainStack.heightAnchor.constraint(equalTo: mainScrollView.frameLayoutGuide.heightAnchor),
         ])
     }
-
+    
     private func setupSubPanel() {
         subScrollView.delegate = self
         addSubview(subContainer)
         subContainer.addSubview(backButton)
         subContainer.addSubview(subScrollView)
         subScrollView.addSubview(subStack)
-
+        
         NSLayoutConstraint.activate([
             subContainer.topAnchor.constraint(equalTo: separatorView.bottomAnchor),
             subContainer.leadingAnchor.constraint(equalTo: leadingAnchor),
             subContainer.trailingAnchor.constraint(equalTo: trailingAnchor),
             subContainer.bottomAnchor.constraint(equalTo: bottomAnchor),
-
+            
             // Back button: fixed to the left, vertically centered.
             backButton.leadingAnchor.constraint(equalTo: subContainer.leadingAnchor),
             backButton.centerYAnchor.constraint(equalTo: subContainer.centerYAnchor),
-
+            
             // Sub scroll view fills the remaining width to the right of the back button.
             subScrollView.topAnchor.constraint(equalTo: subContainer.topAnchor),
             subScrollView.leadingAnchor.constraint(equalTo: backButton.trailingAnchor),
             subScrollView.trailingAnchor.constraint(equalTo: subContainer.trailingAnchor),
             subScrollView.bottomAnchor.constraint(equalTo: subContainer.bottomAnchor),
-
+            
             subStack.topAnchor.constraint(equalTo: subScrollView.contentLayoutGuide.topAnchor),
             subStack.bottomAnchor.constraint(equalTo: subScrollView.contentLayoutGuide.bottomAnchor),
             subStack.leadingAnchor.constraint(equalTo: subScrollView.contentLayoutGuide.leadingAnchor),
@@ -259,14 +254,14 @@ final class EditorFeaturesView: UIView {
             subStack.heightAnchor.constraint(equalTo: subScrollView.frameLayoutGuide.heightAnchor),
         ])
     }
-
+    
     // MARK: - Item Building
-
+    
     private func populate(stack: UIStackView, with items: [FeatureItem]) {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         items.forEach { stack.addArrangedSubview(makeItemButton(for: $0)) }
     }
-
+    
     private func makeItemButton(for item: FeatureItem) -> UIButton {
         let symConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
         var config = UIButton.Configuration.plain()
@@ -290,15 +285,15 @@ final class EditorFeaturesView: UIView {
         btn.addTarget(self, action: #selector(itemTapped(_:)), for: .touchUpInside)
         return btn
     }
-
+    
     // MARK: - Public API
-
+    
     /// Transitions back to the main feature menu.
     func showMainMenu(animated: Bool = true) {
         guard isShowingSubMenu else { return }
         isShowingSubMenu = false
         mainScrollView.isUserInteractionEnabled = true
-
+        
         let transition: () -> Void = {
             self.mainScrollView.alpha = 1
             self.subContainer.alpha  = 0
@@ -306,7 +301,7 @@ final class EditorFeaturesView: UIView {
         let completion: (Bool) -> Void = { _ in
             self.subContainer.isUserInteractionEnabled = false
         }
-
+        
         if animated {
             UIView.animate(withDuration: 0.22, delay: 0,
                            options: .curveEaseOut,
@@ -316,7 +311,7 @@ final class EditorFeaturesView: UIView {
             transition(); completion(true)
         }
     }
-
+    
     /// Transitions to a context-sensitive sub menu.
     /// - Parameters:
     ///   - items: Build these with `FeatureItem.subMenuItems(for:)`.
@@ -328,7 +323,7 @@ final class EditorFeaturesView: UIView {
         subScrollView.contentOffset = .zero
         subContainer.isUserInteractionEnabled = true
         mainScrollView.isUserInteractionEnabled = false
-
+        
         let transition: () -> Void = {
             self.subContainer.alpha  = 1
             self.mainScrollView.alpha = 0
@@ -339,13 +334,13 @@ final class EditorFeaturesView: UIView {
             transition()
         }
     }
-
+    
     // MARK: - Actions
-
+    
     @objc private func backTapped() {
         delegate?.featuresViewDidTapBack(self)
     }
-
+    
     @objc private func itemTapped(_ sender: UIButton) {
         guard let id = sender.accessibilityIdentifier else { return }
         // Search the list that corresponds to the currently visible panel.
@@ -358,7 +353,7 @@ final class EditorFeaturesView: UIView {
 // MARK: - UIScrollViewDelegate
 
 extension EditorFeaturesView: UIScrollViewDelegate {
-
+    
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         // Hard-lock vertical movement so this strip behaves as a pure horizontal rail.
         if scrollView.contentOffset.y != 0 {

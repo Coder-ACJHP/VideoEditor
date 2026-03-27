@@ -9,7 +9,7 @@ final class AudioTrackMediaView: TrackMediaView {
     private let barsContainer = UIStackView()
 
     override func setupMediaContent() {
-        contentView.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.35)
+        contentView.backgroundColor = TimelineConfiguration.default.audioTrackColor
         barsContainer.axis = .horizontal
         barsContainer.alignment = .center
         barsContainer.distribution = .fillEqually

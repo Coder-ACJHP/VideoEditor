@@ -12,29 +12,29 @@
 import Foundation
 
 nonisolated struct MediaTrack: Identifiable, Codable, Sendable {
-
+    
     let id: UUID
     var trackType: TrackType
     var clips: [MediaClip]
-
+    
     /// Ses kanallarına özgü: true olduğunda engine bu track'i mixe katmaz.
     var isMuted: Bool
-
+    
     /// Ses seviyesi çarpanı (0.0 = sessiz, 1.0 = tam ses).
     /// Yalnızca .audio track'lerde anlam taşır.
     var volume: Float
-
+    
     enum TrackType: String, Codable {
-        /// Birincil video ve fotoğraf parçaları.
+        /// Birincil görsel track (video + image clip'ler bir arada yaşar).
         case video
         /// Bağımsız ses katmanı (müzik, ses efekti, dublaj).
         case audio
         /// Üst katman: PiP, metin, grafik veya watermark.
         case overlay
     }
-
+    
     // MARK: - Init
-
+    
     init(
         id: UUID = UUID(),
         trackType: TrackType,
@@ -53,10 +53,10 @@ nonisolated struct MediaTrack: Identifiable, Codable, Sendable {
 extension MediaTrack.TrackType {
     var timelineLaneHeight: CGFloat {
         switch self {
-        case .video:
-            return 60
-        case .audio, .overlay:
-            return 36
+            case .video:
+                return 60
+            case .audio, .overlay:
+                return 36
         }
     }
 }

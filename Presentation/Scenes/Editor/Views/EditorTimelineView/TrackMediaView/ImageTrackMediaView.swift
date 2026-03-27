@@ -24,7 +24,7 @@ final class ImageTrackMediaView: TrackMediaView {
     }
 
     override func setupMediaContent() {
-        contentView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.15)
+        contentView.backgroundColor = TimelineConfiguration.default.imageTrackColor
         rebuildTiles()
         loadThumbnail()
     }
@@ -84,7 +84,7 @@ final class ImageTrackMediaView: TrackMediaView {
         let iv = UIImageView()
         iv.contentMode = .scaleAspectFill
         iv.clipsToBounds = true
-        iv.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.25)
+        iv.backgroundColor = TimelineConfiguration.default.imageTilePlaceholderColor
         iv.image = UIImage(systemName: "photo")
         iv.tintColor = .white.withAlphaComponent(0.3)
         return iv

@@ -14,7 +14,9 @@ import UIKit
 
 protocol TimelineTrackViewDelegate: AnyObject {
     /// Fired when the user taps a clip block in this track lane.
-    func trackView(_ view: TimelineTrackView, didTapClipAt index: Int)
+    func trackView(_ view: TimelineTrackView, didTapClipAt index: Int, mediaType: AssetIdentifier.MediaType)
+    /// Fired when a clip extends beyond the current track width, requesting the timeline to grow.
+    func trackView(_ view: TimelineTrackView, didRequestTimelineExtensionTo newDuration: Double)
 }
 
 // MARK: - TimelineTrackView
@@ -30,9 +32,9 @@ final class TimelineTrackView: UIView {
     private var clipViews: [UIView] = []
     private var pixelsPerSecond: CGFloat = 80
     private var currentTrack: MediaTrack?
-    private weak var selectedMediaView: TrackMediaView?
     private var maxTrackDuration: Double = 0
     private let thumbnailGenerator: ThumbnailGenerating
+    private weak var selectedMediaView: TrackMediaView?
 
     // MARK: - Init
 
@@ -41,13 +43,20 @@ final class TimelineTrackView: UIView {
         self.thumbnailGenerator = thumbnailGenerator
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = .tertiarySystemBackground
-        layer.cornerRadius = 6
+        backgroundColor = TimelineConfiguration.default.trackLaneBackgroundColor
+        layer.cornerRadius = TimelineConfiguration.default.trackLaneCornerRadius
         clipsToBounds = true
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    // MARK: - Selection
+
+    func deselectAll() {
+        selectedMediaView?.setSelected(false)
+        selectedMediaView = nil
     }
 
     // MARK: - Configuration
@@ -146,7 +155,10 @@ extension TimelineTrackView: TrackMediaViewDelegate {
         selectedMediaView?.setSelected(false)
         selectedMediaView = view
         view.setSelected(true)
-        delegate?.trackView(self, didTapClipAt: view.tag)
+
+        let clips = currentTrack?.clips ?? []
+        let mediaType = clips.indices.contains(view.tag) ? clips[view.tag].asset.mediaType : .video
+        delegate?.trackView(self, didTapClipAt: view.tag, mediaType: mediaType)
     }
 
     func trackMediaView(_ view: TrackMediaView, didChangeTimelineRange range: ClipTimeRange) {
@@ -154,16 +166,77 @@ extension TimelineTrackView: TrackMediaViewDelegate {
         guard track.clips.indices.contains(view.tag) else { return }
         track.clips[view.tag].timelineRange = range
         currentTrack = track
-    }
-}
 
-private extension MediaTrack.TrackType {
-    var laneHeight: CGFloat {
-        switch self {
-        case .video:
-            return 60
-        case .audio, .overlay:
-            return 36
+        resolveCollisions(from: view)
+        requestTimelineExtensionIfNeeded()
+    }
+
+    // MARK: - Collision Resolution
+
+    /// Ensures no two clips overlap after a clip is moved or resized.
+    /// Pushes neighbours outward from the edited clip; clamps leftward pushes at x = 0,
+    /// then re-checks left-to-right so clamping doesn't leave residual overlaps.
+    private func resolveCollisions(from movedView: TrackMediaView) {
+        let mediaViews = clipViews.compactMap { $0 as? TrackMediaView }
+        guard mediaViews.count > 1 else { return }
+
+        let sorted = mediaViews.sorted { $0.frame.minX < $1.frame.minX }
+        guard let movedIndex = sorted.firstIndex(where: { $0 === movedView }) else { return }
+
+        // 1) Push clips to the RIGHT of the moved clip
+        for i in movedIndex ..< (sorted.count - 1) {
+            let current = sorted[i]
+            let next    = sorted[i + 1]
+            if current.frame.maxX > next.frame.minX {
+                next.frame.origin.x = current.frame.maxX
+                updateClipRange(for: next)
+            }
         }
+
+        // 2) Push clips to the LEFT of the moved clip (clamped at 0)
+        for i in stride(from: movedIndex, through: 1, by: -1) {
+            let current = sorted[i]
+            let prev    = sorted[i - 1]
+            if prev.frame.maxX > current.frame.minX {
+                let newX = max(current.frame.minX - prev.frame.width, 0)
+                prev.frame.origin.x = newX
+                updateClipRange(for: prev)
+            }
+        }
+
+        // 3) Final left-to-right pass: clamping at 0 may have left new overlaps
+        for i in 0 ..< (sorted.count - 1) {
+            let current = sorted[i]
+            let next    = sorted[i + 1]
+            if current.frame.maxX > next.frame.minX {
+                next.frame.origin.x = current.frame.maxX
+                updateClipRange(for: next)
+            }
+        }
+    }
+
+    /// Syncs a pushed clip's frame back into its model range.
+    private func updateClipRange(for view: TrackMediaView) {
+        let newStart  = Double(view.frame.origin.x / pixelsPerSecond)
+        let duration  = Double(view.frame.width / pixelsPerSecond)
+        let range = ClipTimeRange(startSeconds: newStart, durationSeconds: duration)
+        view.applyTimelineRange(range)
+
+        guard var track = currentTrack else { return }
+        guard track.clips.indices.contains(view.tag) else { return }
+        track.clips[view.tag].timelineRange = range
+        currentTrack = track
+    }
+
+    /// If the rightmost clip exceeds the track's visible width, ask the parent to extend.
+    private func requestTimelineExtensionIfNeeded() {
+        let mediaViews = clipViews.compactMap { $0 as? TrackMediaView }
+        guard let maxEndPx = mediaViews.map({ $0.frame.maxX }).max() else { return }
+
+        let currentWidthPx = bounds.width
+        guard maxEndPx > currentWidthPx else { return }
+
+        let newDuration = Double(maxEndPx / pixelsPerSecond)
+        delegate?.trackView(self, didRequestTimelineExtensionTo: newDuration)
     }
 }

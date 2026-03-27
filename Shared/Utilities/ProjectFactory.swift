@@ -38,8 +38,6 @@ enum ProjectFactory {
         name: String = Self.newProjectName,
         importedMedia: [ImportedMedia]
     ) -> EditingProject {
-        // Başlangıç: tek bir video track içine, sırayla yerleştir.
-        // Audio import Landing'de yok; Editor içinde eklenecek.
         var timelineCursor: Double = 0
         var clips: [MediaClip] = []
         clips.reserveCapacity(importedMedia.count)
@@ -54,7 +52,6 @@ enum ProjectFactory {
                 )
                 clips.append(clip)
                 timelineCursor += MediaClip.defaultImageDuration
-
             case .video:
                 let duration = max(0, item.durationSeconds ?? 0)
                 let source = ClipTimeRange(startSeconds: 0, durationSeconds: duration)
@@ -62,16 +59,13 @@ enum ProjectFactory {
                 let clip = MediaClip(asset: item.asset, timelineRange: timeline, sourceRange: source)
                 clips.append(clip)
                 timelineCursor += duration
-
             case .audio:
-                // Landing'de audio import etmiyoruz.
                 continue
             }
         }
-        // Increase created project count
-        createdProjectsCount += 1
-        // Create new project and return
+
         let track = MediaTrack(trackType: .video, clips: clips)
+        createdProjectsCount += 1
         return EditingProject(name: name, tracks: [track])
     }
 }

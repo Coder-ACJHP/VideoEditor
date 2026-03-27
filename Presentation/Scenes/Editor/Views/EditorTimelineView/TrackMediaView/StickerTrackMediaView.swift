@@ -21,7 +21,7 @@ final class StickerTrackMediaView: TrackMediaView {
     }
 
     override func setupMediaContent() {
-        contentView.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.2)
+        contentView.backgroundColor = TimelineConfiguration.default.stickerTrackColor
 
         stickerImageView.contentMode = .scaleAspectFit
         stickerImageView.clipsToBounds = true

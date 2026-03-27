@@ -270,8 +270,16 @@ extension EditorViewController: EditorTimelineViewDelegate {
         // TODO: Seek the playback engine to `seconds`.
     }
 
-    func timelineView(_ timeline: EditorTimelineView, didSelectTrackType type: MediaTrack.TrackType) {
-        featuresView.showSubMenu(items: FeatureItem.subMenuItems(for: type), animated: true)
+    func timelineView(_ timeline: EditorTimelineView, didSelectClipWithMediaType mediaType: AssetIdentifier.MediaType) {
+        featuresView.showSubMenu(items: FeatureItem.subMenuItems(for: mediaType), animated: true)
+    }
+
+    func timelineViewDidDeselectAll(_ timeline: EditorTimelineView) {
+        featuresView.showMainMenu(animated: true)
+    }
+
+    func timelineView(_ timeline: EditorTimelineView, didExtendDurationTo seconds: Double) {
+        toolbarView.setTotalDuration(formatTime(seconds))
     }
 }
 

@@ -66,19 +66,17 @@ final class TimelineRulerView: UIView {
         let halfPx      = pixelsPerSecond / 2   // points per 0.5 s interval
         let majorH: CGFloat = 10                // major tick height (1 s)
         let minorH: CGFloat = 5                 // minor tick height (0.5 s)
-        let bottomY = rect.height
+        let width   = bounds.width
+        let bottomY = bounds.height
 
-        // Resolve semantic colors here (draw(_:) may be called off-main on older SDKs,
-        // but UIColor.resolved is safe to call on the current trait collection).
         let tickColor  = UIColor.tertiaryLabel.resolvedColor(with: traitCollection).cgColor
-        // Integer tick index avoids floating-point drift across long timelines.
-        let totalTicks = Int(ceil(rect.width / halfPx)) + 2
+        let totalTicks = Int(width / halfPx) + 1
 
         for i in 0 ..< totalTicks {
             let x = CGFloat(i) * halfPx
-            guard x <= rect.width else { break }
+            guard x <= width else { break }
 
-            let isMajor   = (i % 2 == 0)  // every 2 half-steps = 1 full second
+            let isMajor   = (i % 2 == 0)
             let tickH     = isMajor ? majorH : minorH
             let lineWidth: CGFloat = isMajor ? 1.5 : 1.0
 
@@ -87,15 +85,14 @@ final class TimelineRulerView: UIView {
             ctx.move(to:    CGPoint(x: x, y: bottomY - tickH))
             ctx.addLine(to: CGPoint(x: x, y: bottomY))
             ctx.strokePath()
-
         }
     }
 
     private func rebuildLabelsIfNeeded() {
         guard pixelsPerSecond > 0, bounds.width > 0 else { return }
 
-        let maxSecond = Int(ceil(bounds.width / pixelsPerSecond))
-        let requiredCount = maxSecond + 1 // includes 0
+        let maxSecond = Int(bounds.width / pixelsPerSecond)
+        let requiredCount = maxSecond + 1
 
         if secondLabels.count != requiredCount {
             secondLabels.forEach { $0.removeFromSuperview() }

@@ -9,7 +9,7 @@ final class TextTrackMediaView: TrackMediaView {
     private let label = UILabel()
 
     override func setupMediaContent() {
-        contentView.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.35)
+        contentView.backgroundColor = TimelineConfiguration.default.textTrackColor
         label.font = .systemFont(ofSize: 12, weight: .semibold)
         label.textColor = .white
         label.textAlignment = .center

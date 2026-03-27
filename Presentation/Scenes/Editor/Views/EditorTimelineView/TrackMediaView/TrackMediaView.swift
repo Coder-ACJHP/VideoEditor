@@ -11,14 +11,8 @@ protocol TrackMediaViewDelegate: AnyObject {
 }
 
 class TrackMediaView: UIView {
-    private enum UI {
-        static let selectionColor = UIColor(red: 0.82, green: 0.67, blue: 0.00, alpha: 1.0)
-        static let minDurationSec: Double = 1.0
-        static let handleWidth: CGFloat = 20
-        static let cornerRadius: CGFloat = 10
-        static let mediaPadding: CGFloat = 8
-        static let mediaVerticalPadding: CGFloat = 6
-    }
+
+    private var config: TimelineConfiguration { .default }
 
     weak var delegate: TrackMediaViewDelegate?
 
@@ -58,11 +52,11 @@ class TrackMediaView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         selectionBorderView.frame = bounds
-        durationLabel.frame = CGRect(x: UI.handleWidth, y: 2, width: min(bounds.width - 16, 40), height: 16)
-        leftHandle.frame = CGRect(x: 0, y: 0, width: UI.handleWidth, height: bounds.height)
-        rightHandle.frame = CGRect(x: bounds.width - UI.handleWidth, y: 0, width: UI.handleWidth, height: bounds.height)
+        durationLabel.frame = CGRect(x: config.selectionHandleWidth, y: 2, width: min(bounds.width - 16, 40), height: 16)
+        leftHandle.frame = CGRect(x: 0, y: 0, width: config.selectionHandleWidth, height: bounds.height)
+        rightHandle.frame = CGRect(x: bounds.width - config.selectionHandleWidth, y: 0, width: config.selectionHandleWidth, height: bounds.height)
         mediaContainerView.frame = bounds
-        mediaContainerView.layer.cornerRadius = UI.cornerRadius - 2
+        mediaContainerView.layer.cornerRadius = config.clipCornerRadius - 2
     }
 
     func setSelected(_ selected: Bool) {
@@ -78,7 +72,7 @@ class TrackMediaView: UIView {
     }
 
     func updateTrackLimits(maxDuration: Double) {
-        maxTrackDuration = max(maxDuration, UI.minDurationSec)
+        maxTrackDuration = max(maxDuration, config.minClipDuration)
     }
 
     func setupMediaContent() {}
@@ -86,18 +80,18 @@ class TrackMediaView: UIView {
     private func setupView() {
         clipsToBounds = false
         isUserInteractionEnabled = true
-        layer.cornerRadius = UI.cornerRadius
+        layer.cornerRadius = config.clipCornerRadius
         backgroundColor = .clear
-
-        selectionBorderView.layer.borderColor = UI.selectionColor.cgColor
-        selectionBorderView.layer.borderWidth = 2
-        selectionBorderView.layer.cornerRadius = UI.cornerRadius
-        selectionBorderView.backgroundColor = .clear
-        addSubview(selectionBorderView)
 
         mediaContainerView.clipsToBounds = true
         addSubview(mediaContainerView)
         setupMediaContent()
+
+        selectionBorderView.layer.borderColor = config.selectionColor.cgColor
+        selectionBorderView.layer.borderWidth = config.selectionBorderWidth
+        selectionBorderView.layer.cornerRadius = config.clipCornerRadius
+        selectionBorderView.backgroundColor = .clear
+        addSubview(selectionBorderView)
 
         durationLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
         durationLabel.textColor = .white
@@ -124,8 +118,8 @@ class TrackMediaView: UIView {
         label.textAlignment = .center
         label.font = .systemFont(ofSize: 18, weight: .bold)
         label.textColor = .black
-        label.backgroundColor = UI.selectionColor
-        label.layer.cornerRadius = UI.cornerRadius - 2
+        label.backgroundColor = config.selectionColor
+        label.layer.cornerRadius = config.clipCornerRadius - 2
         label.layer.maskedCorners = isLeft ? [.layerMinXMinYCorner, .layerMinXMaxYCorner] : [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
         label.layer.masksToBounds = true
         label.isUserInteractionEnabled = true
@@ -148,7 +142,7 @@ class TrackMediaView: UIView {
             initialRange = timelineRange
         case .changed:
             let tx = gesture.translation(in: superview).x
-            let x = max(min(initialFrame.origin.x + tx, CGFloat(maxTrackDuration) * pixelsPerSecond - initialFrame.width), 0)
+            let x = max(initialFrame.origin.x + tx, 0)
             frame.origin.x = x
             timelineRange.startSeconds = Double(x / pixelsPerSecond)
             notifyRangeChanged()
@@ -164,7 +158,7 @@ class TrackMediaView: UIView {
             initialRange = timelineRange
         case .changed:
             let tx = gesture.translation(in: superview).x
-            let minWidth = CGFloat(UI.minDurationSec) * pixelsPerSecond
+            let minWidth = CGFloat(config.minClipDuration) * pixelsPerSecond
             let maxX = initialFrame.maxX - minWidth
             let clampedX = min(max(initialFrame.minX + tx, 0), maxX)
             let newWidth = initialFrame.maxX - clampedX
@@ -173,7 +167,7 @@ class TrackMediaView: UIView {
 
             let startDeltaSeconds = Double((clampedX - initialFrame.minX) / pixelsPerSecond)
             timelineRange.startSeconds = initialRange.startSeconds + startDeltaSeconds
-            timelineRange.durationSeconds = max(Double(newWidth / pixelsPerSecond), UI.minDurationSec)
+            timelineRange.durationSeconds = max(Double(newWidth / pixelsPerSecond), config.minClipDuration)
             notifyRangeChanged()
         default:
             break
@@ -187,12 +181,11 @@ class TrackMediaView: UIView {
             initialRange = timelineRange
         case .changed:
             let tx = gesture.translation(in: superview).x
-            let minWidth = CGFloat(UI.minDurationSec) * pixelsPerSecond
-            let maxWidthByDuration = CGFloat(maxTrackDuration - initialRange.startSeconds) * pixelsPerSecond
+            let minWidth = CGFloat(config.minClipDuration) * pixelsPerSecond
             let candidateWidth = initialFrame.width + tx
-            let newWidth = min(max(candidateWidth, minWidth), maxWidthByDuration)
+            let newWidth = max(candidateWidth, minWidth)
             frame.size.width = newWidth
-            timelineRange.durationSeconds = max(Double(newWidth / pixelsPerSecond), UI.minDurationSec)
+            timelineRange.durationSeconds = max(Double(newWidth / pixelsPerSecond), config.minClipDuration)
             notifyRangeChanged()
         default:
             break

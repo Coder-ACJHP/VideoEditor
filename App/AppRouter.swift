@@ -12,6 +12,9 @@ enum Route: String, CaseIterable {
     case landing
     case editor
     case export
+    case audioBottomSheet
+    case stickerBottomSheet
+    case textBottomSheet
 }
 
 // MARK: - RouterDelegate Protocol
@@ -22,6 +25,17 @@ enum Route: String, CaseIterable {
 protocol RouterDelegate: AnyObject {
     func navigate(to route: Route, animated: Bool)   // Push
     func present(to route: Route, animated: Bool)    // Modal present
+    func presentBottomSheet(
+        to route: Route,
+        config: SheetConfiguration,
+        animated: Bool
+    )    // BottomSheet
+    /// Presents a pre-built controller as a sheet (e.g. editor-owned `AudioBottomSheetViewController` with callbacks).
+    func presentBottomSheet(
+        _ viewController: UIViewController,
+        config: SheetConfiguration,
+        animated: Bool
+    )
     func pop(animated: Bool)
     func dismiss(animated: Bool)
     func makeViewController(baseRoute route: Route) -> UIViewController  // Factory
@@ -32,6 +46,7 @@ protocol RouterDelegate: AnyObject {
 
 @MainActor
 class AppRouter: RouterDelegate {
+    
     private let controller: UINavigationController
     private let thumbnailService: ThumbnailGenerating
     
@@ -63,6 +78,45 @@ class AppRouter: RouterDelegate {
         controller.dismiss(animated: animated)
     }
     
+    func presentBottomSheet(to route: Route, config configuration: SheetConfiguration, animated: Bool) {
+        let bottomSheet = makeViewController(baseRoute: route)        
+        bottomSheet.modalPresentationStyle = .pageSheet
+        bottomSheet.isModalInPresentation = !configuration.isDismissable
+
+        if let sheet = bottomSheet.sheetPresentationController {
+            sheet.detents = configuration.detents
+            sheet.selectedDetentIdentifier = configuration.selectedIdentifier
+            sheet.prefersGrabberVisible = configuration.prefersGrabber
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = configuration.prefersScrollExpand
+            sheet.preferredCornerRadius = configuration.cornerRadius
+
+            if let largestUndimmed = configuration.largestUndimmedIdentifier {
+                sheet.largestUndimmedDetentIdentifier = largestUndimmed
+            }
+        }
+
+        controller.present(bottomSheet, animated: animated, completion: nil)
+    }
+
+    func presentBottomSheet(_ viewController: UIViewController, config configuration: SheetConfiguration, animated: Bool) {
+        viewController.modalPresentationStyle = .pageSheet
+        viewController.isModalInPresentation = !configuration.isDismissable
+
+        if let sheet = viewController.sheetPresentationController {
+            sheet.detents = configuration.detents
+            sheet.selectedDetentIdentifier = configuration.selectedIdentifier
+            sheet.prefersGrabberVisible = configuration.prefersGrabber
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = configuration.prefersScrollExpand
+            sheet.preferredCornerRadius = configuration.cornerRadius
+
+            if let largestUndimmed = configuration.largestUndimmedIdentifier {
+                sheet.largestUndimmedDetentIdentifier = largestUndimmed
+            }
+        }
+
+        controller.present(viewController, animated: animated, completion: nil)
+    }
+
     func navigateToEditor(with project: EditingProject, animated: Bool) {
         let viewModel = EditorViewModel(project: project)
         let editorVC = EditorViewController(
@@ -90,6 +144,12 @@ class AppRouter: RouterDelegate {
                 )
             case .export:
                 return ExportViewController(router: self)
+            case .audioBottomSheet:
+                return AudioBottomSheetViewController(router: self)
+            case .stickerBottomSheet:
+                return StickerBottomSheetViewController(router: self)
+            case .textBottomSheet:
+                return TextBottomSheetViewController(router: self)
         }
     }
 }

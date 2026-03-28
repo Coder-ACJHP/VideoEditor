@@ -27,26 +27,22 @@ final class EditorViewModel {
     private let baseProject: EditingProject
     private var workingTracks: [MediaTrack]
     private let testMediaLocator: BundledTestMediaLocating
-    private let textRasterizer: EditorScratchTextImageRasterizing
 
     /// Full initializer for tests / custom dependencies.
     init(
         project: EditingProject,
-        testMediaLocator: BundledTestMediaLocating,
-        textRasterizer: EditorScratchTextImageRasterizing
+        testMediaLocator: BundledTestMediaLocating
     ) {
         self.baseProject = project
         self.workingTracks = project.tracks
         self.testMediaLocator = testMediaLocator
-        self.textRasterizer = textRasterizer
     }
 
     /// App / router entry — default services are constructed on the main actor (not in a default argument).
     convenience init(project: EditingProject) {
         self.init(
             project: project,
-            testMediaLocator: BundledTestMediaLocator(),
-            textRasterizer: EditorScratchTextImageRasterizer()
+            testMediaLocator: BundledTestMediaLocator()
         )
     }
 
@@ -91,24 +87,22 @@ final class EditorViewModel {
 
     // MARK: - Features (scratch / dev inserts)
 
+    /// Adds an audio clip after the user confirms a row in `AudioBottomSheetViewController`.
+    func addAudioFromBrowseItem(_ item: AudioBrowseItem) async {
+        guard let url = item.url else {
+            print("Audio browse item has no file URL: \(item.id)")
+            return
+        }
+        let asset: AssetIdentifier = .audio(url)
+        let duration = await AssetDurationResolver.sourceDuration(for: asset) ?? 5
+        await appendClip(to: .audio, asset: asset, duration: duration)
+    }
+
     func handleMainMenuFeatureSelection(_ item: FeatureItem) async {
         switch item.id {
-        case "audio":
-            guard let url = testMediaLocator.url(resource: "Reflection", extension: "mp3") else {
-                print("Missing bundled test media: Reflection.mp3")
-                return
-            }
-            let asset: AssetIdentifier = .audio(url)
-            let duration = await AssetDurationResolver.sourceDuration(for: asset) ?? 5
-            await appendClip(to: .audio, asset: asset, duration: duration)
-
         case "text":
-            do {
-                let url = try textRasterizer.makeTemporaryPNGURL(text: "Sample Text")
-                await appendClip(to: .overlay, asset: .image(url), duration: 3)
-            } catch {
-                print("Failed to generate temporary text image: \(error)")
-            }
+            let descriptor = TextOverlayDescriptor.defaultNew()
+            await appendClip(to: .overlay, asset: .text(descriptor), duration: 3)
 
         case "sticker":
             guard let url = testMediaLocator.url(resource: "img1", extension: "jpg") else {
@@ -117,6 +111,9 @@ final class EditorViewModel {
             }
             await appendClip(to: .overlay, asset: .image(url), duration: 3)
 
+        case "audio":
+            // The editor presents the audio sheet from `EditorViewController`; this path is unused from the strip.
+            break
         default:
             print("Feature view didSelect item: \(item)")
         }

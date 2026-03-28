@@ -56,7 +56,7 @@ extension FeatureItem {
                     FeatureItem(id: "duplicate", title: "Duplicate", icon: UIImage(systemName: "doc.on.doc")),
                     FeatureItem(id: "delete",    title: "Delete",    icon: UIImage(systemName: "trash")),
                 ]
-            case .image:
+            case .image, .text:
                 return [
                     FeatureItem(id: "duration",  title: "Duration",  icon: UIImage(systemName: "timer")),
                     FeatureItem(id: "duplicate", title: "Duplicate", icon: UIImage(systemName: "doc.on.doc")),

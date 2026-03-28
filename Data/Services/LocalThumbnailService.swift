@@ -7,68 +7,13 @@ import AVFoundation
 import UIKit
 import ImageIO
 
-// MARK: - Per-URL serial decode
-
-/// `AVAssetImageGenerator` is not safe for concurrent use. One actor per file serializes all
-/// `image(at:)` work for that URL so parallel `Task`s cannot overlap on the same generator.
-private actor VideoThumbnailPipeline {
-
-    private let url: URL
-    private var generator: AVAssetImageGenerator?
-
-    init(url: URL) {
-        self.url = url
-    }
-
-    func decodeFrame(
-        at seconds: Double,
-        sizePoints: CGSize,
-        screenScale: CGFloat,
-        maxPixelLongEdge: CGFloat
-    ) async -> UIImage? {
-        let gen: AVAssetImageGenerator
-        if let existing = generator {
-            gen = existing
-        } else {
-            let asset = AVURLAsset(url: url)
-            let g = AVAssetImageGenerator(asset: asset)
-            g.appliesPreferredTrackTransform = true
-            generator = g
-            gen = g
-        }
-
-        // Keyframe-aligned: much lower CPU than sample-accurate seeks.
-        gen.requestedTimeToleranceBefore = .positiveInfinity
-        gen.requestedTimeToleranceAfter = .positiveInfinity
-
-        var w = max(1, sizePoints.width * screenScale)
-        var h = max(1, sizePoints.height * screenScale)
-        let longEdge = max(w, h)
-        let cap = max(32, maxPixelLongEdge)
-        if longEdge > cap {
-            let r = cap / longEdge
-            w = max(1, floor(w * r))
-            h = max(1, floor(h * r))
-        }
-        gen.maximumSize = CGSize(width: w, height: h)
-
-        let time = CMTime(seconds: seconds, preferredTimescale: 600)
-        do {
-            let (cgImage, _) = try await gen.image(at: time)
-            return autoreleasepool {
-                UIImage(cgImage: cgImage)
-            }
-        } catch {
-            return nil
-        }
-    }
-}
-
-// MARK: - Service
+// MARK: - Service Uses `VideoThumbnailPipeline`
 
 final actor LocalThumbnailService: ThumbnailGenerating {
 
     // MARK: - Private Properties
+
+    private let overlayGenerating: OverlayGenerating
 
     /// `NSCache` is thread-safe. With `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, keeping this
     /// actor-isolated would make UIImage-backed cache access cross isolation incorrectly; `unsafe`
@@ -81,6 +26,10 @@ final actor LocalThumbnailService: ThumbnailGenerating {
     }()
 
     private var pipelines: [URL: VideoThumbnailPipeline] = [:]
+
+    init(overlayGenerating: OverlayGenerating = TextOverlayRenderingService()) {
+        self.overlayGenerating = overlayGenerating
+    }
 
     // MARK: - Public Interface
 
@@ -104,6 +53,12 @@ final actor LocalThumbnailService: ThumbnailGenerating {
                 sizePoints: size,
                 screenScale: scale,
                 maxPixelLongEdge: cap
+            )
+        case .text(let descriptor):
+            image = await overlayGenerating.generatePreviewImage(
+                for: descriptor,
+                transform: .identity,
+                canvasSize: size
             )
         default:
             image = nil
@@ -189,6 +144,8 @@ final actor LocalThumbnailService: ThumbnailGenerating {
         switch asset {
         case .image(let url), .video(let url), .audio(let url): return url.path
         case .phAssetVideo(let id), .phAssetImage(let id): return id
+        case .text(let d):
+            return "text:\(d.text.hashValue)_\(d.fontName)_\(d.fontSize)_\(d.textColorHex)_\(d.backgroundColorHex ?? "")"
         }
     }
 

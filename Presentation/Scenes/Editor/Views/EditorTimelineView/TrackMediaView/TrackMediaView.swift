@@ -10,7 +10,12 @@ import UIKit
 
 protocol TrackMediaViewDelegate: AnyObject {
     func trackMediaViewDidToggleSelection(_ view: TrackMediaView)
-    func trackMediaView(_ view: TrackMediaView, didChangeTimelineRange range: ClipTimeRange, sourceRange: ClipTimeRange, allowExtension: Bool)
+    func trackMediaView(
+        _ view: TrackMediaView,
+        didChangeTimelineRange range: ClipTimeRange,
+        sourceRange: ClipTimeRange,
+        allowExtension: Bool
+    )
     /// User tapped the master-track transition control (between this clip and the next).
     func trackMediaViewDidTapTransitionAffordance(_ view: TrackMediaView)
 }
@@ -33,6 +38,10 @@ class TrackMediaView: UIView {
             updateMasterTransitionAffordanceVisibility()
             setNeedsLayout()
         }
+    }
+    var durationLabelCanControlled: Bool = true
+    var showsDurationLabel: Bool = true {
+        didSet { durationLabel.isHidden = !showsDurationLabel }
     }
     var contentView: UIView { mediaContainerView }
 
@@ -83,10 +92,15 @@ class TrackMediaView: UIView {
             .withRenderingMode(.alwaysTemplate)
         btnConfig.image = image
         
-        let button = UIButton(configuration: btnConfig, primaryAction: UIAction(handler: { [weak self] action in
-            guard let self else { return }
-            delegate?.trackMediaViewDidTapTransitionAffordance(self)
-        }))
+        let button = UIButton(
+            configuration: btnConfig,
+            primaryAction: UIAction(
+                handler: { [weak self] action in
+                    guard let self else { return }
+                    delegate?.trackMediaViewDidTapTransitionAffordance(self)
+                }
+            )
+        )
         button.clipsToBounds = true
         button.isHidden = true
         button.accessibilityLabel = "Transition to next clip"
@@ -112,18 +126,31 @@ class TrackMediaView: UIView {
 
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         if bounds.contains(point) { return true }
-        if isMasterTransitionAffordanceInteractive, transitionButton.frame.contains(point) {
-            return true
-        }
+        if isMasterTransitionAffordanceInteractive, transitionButton.frame.contains(point) { return true }
         return false
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
         selectionBorderView.frame = bounds
-        durationLabel.frame = CGRect(x: config.selectionHandleWidth, y: 2, width: min(bounds.width - 16, 40), height: 16)
-        leftHandle.frame = CGRect(x: 0, y: 0, width: config.selectionHandleWidth, height: bounds.height)
-        rightHandle.frame = CGRect(x: bounds.width - config.selectionHandleWidth, y: 0, width: config.selectionHandleWidth, height: bounds.height)
+        durationLabel.frame = CGRect(
+            x: config.selectionHandleWidth,
+            y: 2,
+            width: min(bounds.width - 16, 40),
+            height: 16
+        )
+        leftHandle.frame = CGRect(
+            x: 0,
+            y: 0,
+            width: config.selectionHandleWidth,
+            height: bounds.height
+        )
+        rightHandle.frame = CGRect(
+            x: bounds.width - config.selectionHandleWidth,
+            y: 0,
+            width: config.selectionHandleWidth,
+            height: bounds.height
+        )
         mediaContainerView.frame = bounds
         mediaContainerView.layer.cornerRadius = config.clipCornerRadius - 2
     }
@@ -131,9 +158,12 @@ class TrackMediaView: UIView {
     func setSelected(_ selected: Bool) {
         isSelected = selected
         selectionBorderView.isHidden = !selected
-        durationLabel.isHidden = !selected
         leftHandle.isHidden = !selected
         rightHandle.isHidden = !selected
+        // Conrol point for label visibility (used for audio media track)
+        if durationLabelCanControlled {
+            durationLabel.isHidden = !selected
+        }
 
         leftHandlePan.isEnabled = selected
         rightHandlePan.isEnabled = selected
@@ -285,7 +315,7 @@ class TrackMediaView: UIView {
             switch clip.asset.mediaType {
             case .video, .audio:
                 return true
-            case .image:
+            case .image, .text:
                 return false
             }
         }()
@@ -357,7 +387,7 @@ class TrackMediaView: UIView {
             switch clip.asset.mediaType {
             case .video, .audio:
                 return true
-            case .image:
+            case .image, .text:
                 return false
             }
         }()

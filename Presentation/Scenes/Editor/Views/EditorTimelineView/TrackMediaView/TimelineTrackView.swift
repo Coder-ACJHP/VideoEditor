@@ -195,7 +195,7 @@ final class TimelineTrackView: UIView {
         let clipCount = currentTrack?.clips.count ?? 0
         let hasFollowingClip = index < clipCount - 1
         let isVisualMasterClip = trackType == .video
-            && (clip.asset.mediaType == .video || clip.asset.mediaType == .image)
+            && (clip.asset.mediaType == .video || clip.asset.mediaType == .image || clip.asset.mediaType == .text)
         mediaView.showsMasterTransitionAffordance = isVisualMasterClip && hasFollowingClip
         mediaView.updateTrackLimits(maxDuration: effectiveTrackDurationLimit)
         mediaView.setSelected(false)
@@ -221,6 +221,13 @@ final class TimelineTrackView: UIView {
             )
         case .image:
             return ImageTrackMediaView(
+                frame: frame,
+                clip: clip,
+                layout: layout,
+                thumbnailGenerator: thumbnailGenerator
+            )
+        case .text:
+            return TextTrackMediaView(
                 frame: frame,
                 clip: clip,
                 layout: layout,
@@ -252,7 +259,7 @@ extension TimelineTrackView: TrackMediaViewDelegate {
 
     func trackMediaViewDidTapTransitionAffordance(_ view: TrackMediaView) {
         guard trackType == .video else { return }
-        guard var track = currentTrack else { return }
+        guard let track = currentTrack else { return }
         guard track.clips.indices.contains(view.tag) else { return }
         guard view.tag < track.clips.count - 1 else { return }
 

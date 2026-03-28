@@ -162,6 +162,18 @@ final class EditorViewController: UIViewController {
         toolbarView.setRedoEnabled(false)
         viewModel.start()
     }
+
+    /// Presents the audio browser built in-editor so the confirm handler can call into `EditorViewModel`.
+    private func presentAudioBottomSheet() {
+        let configuration = EditorFeatureSheetPresentationMapper.audioPickerSheetConfiguration()
+        let sheet = AudioBottomSheetViewController(router: router) { [weak self] item in
+            guard let self else { return }
+            Task {
+                await self.viewModel.addAudioFromBrowseItem(item)
+            }
+        }
+        router.presentBottomSheet(sheet, config: configuration, animated: true)
+    }
 }
 
 // MARK: - EditorViewModelDelegate
@@ -278,12 +290,23 @@ extension EditorViewController: EditorTimelineViewDelegate {
 extension EditorViewController: EditorFeaturesViewDelegate {
 
     func featuresView(_ view: EditorFeaturesView, didSelectItem item: FeatureItem) {
-        Task { @MainActor in
-            await viewModel.handleMainMenuFeatureSelection(item)
+        if item.id == "audio" {
+            presentAudioBottomSheet()
+            return
         }
+        guard let presentation = EditorFeatureSheetPresentationMapper.presentation(for: item) else {
+            print("Feature view didSelect item: \(item)")
+            return
+        }
+        router.presentBottomSheet(
+            to: presentation.route,
+            config: presentation.configuration,
+            animated: true
+        )
     }
 
     func featuresViewDidTapBack(_ view: EditorFeaturesView) {
         featuresView.showMainMenu(animated: true)
     }
 }
+

@@ -49,7 +49,7 @@ enum ProjectFactory {
 
         for item in importedMedia {
             switch item.asset.mediaType {
-            case .image:
+            case .image, .text:
                 let clip = MediaClip(
                     imageAsset: item.asset,
                     timelineOffset: timelineCursor,

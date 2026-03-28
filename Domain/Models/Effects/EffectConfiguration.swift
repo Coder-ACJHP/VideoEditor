@@ -3,9 +3,7 @@
 //  VideoEditor
 //
 //  Bir clip'e uygulanabilecek tüm efekt tiplerini kapsıyor.
-//  Efektler VideoClip.effects dizisinde sıralanmış tutulur;
-//  sıra, render sonucunu etkiler (örn. transform'dan önce filter uygulamak
-//  ile sonra uygulamak farklı çıktı verir).
+//  Geometri `MediaClip.transform` içindedir; burada yalnızca filtre / hız vb. kalır.
 //
 //  Codable notu: Swift'te associated value taşıyan enum'lar için
 //  sentezlenmiş Codable çalışmaz; aşağıda discriminator (type tag) pattern
@@ -15,7 +13,6 @@ import Foundation
 
 nonisolated enum EffectConfiguration: Equatable, Sendable {
     case filter(FilterEffect)
-    case transform(TransformEffect)
     case speed(SpeedEffect)
 }
 
@@ -30,8 +27,9 @@ extension EffectConfiguration: Codable {
 
     private enum EffectType: String, Codable {
         case filter
-        case transform
         case speed
+        /// Eski projeler; decode sonrası yok sayılır (geometri artık `MediaClip.transform`).
+        case transform
     }
 
     func encode(to encoder: Encoder) throws {
@@ -39,9 +37,6 @@ extension EffectConfiguration: Codable {
         switch self {
         case .filter(let effect):
             try container.encode(EffectType.filter, forKey: .type)
-            try container.encode(effect, forKey: .payload)
-        case .transform(let effect):
-            try container.encode(EffectType.transform, forKey: .type)
             try container.encode(effect, forKey: .payload)
         case .speed(let effect):
             try container.encode(EffectType.speed, forKey: .type)
@@ -55,10 +50,12 @@ extension EffectConfiguration: Codable {
         switch effectType {
         case .filter:
             self = .filter(try container.decode(FilterEffect.self, forKey: .payload))
-        case .transform:
-            self = .transform(try container.decode(TransformEffect.self, forKey: .payload))
         case .speed:
             self = .speed(try container.decode(SpeedEffect.self, forKey: .payload))
+        case .transform:
+            // Eski sürümler; geometri artık `MediaClip.transform` üzerinde, burada yok sayılır.
+            _ = try container.decode(TransformEffect.self, forKey: .payload)
+            self = .filter(FilterEffect(filterType: .grayscale, intensity: 0))
         }
     }
 }

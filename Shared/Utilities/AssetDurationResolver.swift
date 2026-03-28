@@ -19,7 +19,7 @@ enum AssetDurationResolver {
             let seconds = try? await AVURLAsset(url: url).load(.duration).seconds
             guard let seconds, seconds.isFinite, seconds > 0 else { return nil }
             return seconds
-        case .image, .phAssetImage, .phAssetVideo:
+        case .image, .phAssetImage, .phAssetVideo, .text:
             return nil
         }
     }

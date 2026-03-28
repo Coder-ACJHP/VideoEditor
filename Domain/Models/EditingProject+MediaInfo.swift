@@ -25,7 +25,7 @@ extension EditingProject {
             switch clip.asset {
             case .image(let url), .video(let url), .audio(let url):
                 seen.insert(url)
-            case .phAssetVideo, .phAssetImage:
+            case .phAssetVideo, .phAssetImage, .text:
                 break
             }
         }

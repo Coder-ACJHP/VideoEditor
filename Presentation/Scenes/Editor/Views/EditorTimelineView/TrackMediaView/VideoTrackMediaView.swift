@@ -146,7 +146,7 @@ final class VideoTrackMediaView: TrackMediaView {
             return (i, t)
         }
 
-        // Serial awaits: `VideoThumbnailPipeline` already serializes per URL; a plain loop avoids
+        // Serial awaits: `LocalThumbnailService` already serializes per URL; a plain loop avoids
         // N suspended tasks piling up while decodes run one at a time.
         thumbnailLoadTask = Task { @MainActor [weak self] in
             guard let self else { return }

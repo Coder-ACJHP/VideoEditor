@@ -19,6 +19,9 @@ nonisolated enum AssetIdentifier: Codable, Hashable {
     /// Engine, still-frame olduğunu bu case'den anlar; sourceRange uygulanmaz.
     case image(URL)
 
+    /// Metin overlay; raster dosya yok, içerik `TextOverlayDescriptor` + `MediaClip.transform`.
+    case text(TextOverlayDescriptor)
+
     /// Photos Library'den seçilen video (localIdentifier).
     case phAssetVideo(String)
     /// Photos Library'den seçilen fotoğraf (localIdentifier).
@@ -31,6 +34,7 @@ nonisolated enum AssetIdentifier: Codable, Hashable {
         case .video, .phAssetVideo: return .video
         case .audio:                return .audio
         case .image, .phAssetImage: return .image
+        case .text:                 return .text
         }
     }
 
@@ -42,5 +46,7 @@ nonisolated enum AssetIdentifier: Codable, Hashable {
         /// Still frame; sourceRange engine tarafından görmezden gelinir,
         /// display süresi timelineRange.durationSeconds'dan alınır.
         case image
+        /// Metin overlay; süre `timelineRange` üzerinden, geometri `MediaClip.transform`.
+        case text
     }
 }

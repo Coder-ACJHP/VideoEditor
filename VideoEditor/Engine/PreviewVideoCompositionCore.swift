@@ -213,9 +213,10 @@ final class PreviewCoreImageVideoCompositor: NSObject, AVVideoCompositing {
                 request.finishCancelledRequest()
                 return
             }
+            
             autoreleasepool {
-                if let pb = self.newRenderedPixelBuffer(for: request) {
-                    request.finish(withComposedVideoFrame: pb)
+                if let pixelBuffer = self.newRenderedPixelBuffer(for: request) {
+                    request.finish(withComposedVideoFrame: pixelBuffer)
                 } else {
                     request.finish(with: NSError(domain: "PreviewVideoCompositor", code: -1))
                 }

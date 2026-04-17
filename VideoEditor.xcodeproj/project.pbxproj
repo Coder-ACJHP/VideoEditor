@@ -141,6 +141,10 @@
 		F2TXTAL112FAA400100E04DD1 /* TextOverlayTextAlignment.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2TXTAL122FAA400100E04DD1 /* TextOverlayTextAlignment.swift */; };
 		F2TXTCI312FAA500100E04DD1 /* TextOverlayPreviewCIRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2TXTCI322FAA500100E04DD1 /* TextOverlayPreviewCIRenderer.swift */; };
 		F2TXTCV112FAA400100E04DD1 /* EditorCanvasTextOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2TXTCV122FAA400100E04DD1 /* EditorCanvasTextOverlayView.swift */; };
+		F2IMGOV112FAA500100E04DD1 /* EditorCanvasImageOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2IMGOV122FAA500100E04DD1 /* EditorCanvasImageOverlayView.swift */; };
+		F2OVCBND12F90402000E04DD1 /* EditorCanvasOverlayBindings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2OVCBND22F90402000E04DD1 /* EditorCanvasOverlayBindings.swift */; };
+		F2OVCLIP12F90402000E04DD1 /* OverlayCanvasClip.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2OVCLIP22F90402000E04DD1 /* OverlayCanvasClip.swift */; };
+		F2OVUCAS12F90402000E04DD1 /* BuildEditorCanvasOverlayState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2OVUCAS22F90402000E04DD1 /* BuildEditorCanvasOverlayState.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -289,6 +293,10 @@
 		F2TXTAL122FAA400100E04DD1 /* TextOverlayTextAlignment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextOverlayTextAlignment.swift; sourceTree = "<group>"; };
 		F2TXTCI322FAA500100E04DD1 /* TextOverlayPreviewCIRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextOverlayPreviewCIRenderer.swift; sourceTree = "<group>"; };
 		F2TXTCV122FAA400100E04DD1 /* EditorCanvasTextOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorCanvasTextOverlayView.swift; sourceTree = "<group>"; };
+		F2IMGOV122FAA500100E04DD1 /* EditorCanvasImageOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorCanvasImageOverlayView.swift; sourceTree = "<group>"; };
+		F2OVCBND22F90402000E04DD1 /* EditorCanvasOverlayBindings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorCanvasOverlayBindings.swift; sourceTree = "<group>"; };
+		F2OVCLIP22F90402000E04DD1 /* OverlayCanvasClip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayCanvasClip.swift; sourceTree = "<group>"; };
+		F2OVUCAS22F90402000E04DD1 /* BuildEditorCanvasOverlayState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildEditorCanvasOverlayState.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -440,6 +448,7 @@
 				F25D1C462F740F4D00B82DC2 /* AssetIdentifier.swift */,
 				F2TEXT0122FAA200100E04DD1 /* TextOverlayDescriptor.swift */,
 				F2TOVIT322FAA600100E04DD1 /* TextOverlayItem.swift */,
+				F2OVCLIP22F90402000E04DD1 /* OverlayCanvasClip.swift */,
 				F2TXTAL122FAA400100E04DD1 /* TextOverlayTextAlignment.swift */,
 				F25D1C482F740F5700B82DC2 /* ClipTransition.swift */,
 				F25D1C522F740FAB00B82DC2 /* MediaClip.swift */,
@@ -488,7 +497,6 @@
 		F25D1C2E2F73F65800B82DC2 /* Data */ = {
 			isa = PBXGroup;
 			children = (
-				F25D1C3B2F73F74800B82DC2 /* Repositories */,
 				F25D1C3A2F73F73700B82DC2 /* Persistence */,
 				D4322426CB7412D483397FC6 /* Services */,
 			);
@@ -528,10 +536,28 @@
 		F25D1C322F73F69200B82DC2 /* Editor */ = {
 			isa = PBXGroup;
 			children = (
+				F2EDMODL2F90402000E04DD0 /* Models */,
+				F2EDUCAS2F90402000E04DD0 /* UseCases */,
 				F29334452F75153500E04DD0 /* Views */,
 				A1E0GR012F90000000E04DD0 /* ViewModel */,
 			);
 			path = Editor;
+			sourceTree = "<group>";
+		};
+		F2EDMODL2F90402000E04DD0 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				F2OVCBND22F90402000E04DD1 /* EditorCanvasOverlayBindings.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		F2EDUCAS2F90402000E04DD0 /* UseCases */ = {
+			isa = PBXGroup;
+			children = (
+				F2OVUCAS22F90402000E04DD1 /* BuildEditorCanvasOverlayState.swift */,
+			);
+			path = UseCases;
 			sourceTree = "<group>";
 		};
 		F25D1C332F73F69B00B82DC2 /* Export */ = {
@@ -617,13 +643,6 @@
 			path = Persistence;
 			sourceTree = "<group>";
 		};
-		F25D1C3B2F73F74800B82DC2 /* Repositories */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Repositories;
-			sourceTree = "<group>";
-		};
 		F25D1C3C2F73F79C00B82DC2 /* Splash */ = {
 			isa = PBXGroup;
 			children = (
@@ -678,6 +697,7 @@
 				F29334462F75155500E04DD0 /* EditorNavigationBar.swift */,
 				F29334482F751AB900E04DD0 /* EditorRenderView.swift */,
 				F2TXTCV122FAA400100E04DD1 /* EditorCanvasTextOverlayView.swift */,
+				F2IMGOV122FAA500100E04DD1 /* EditorCanvasImageOverlayView.swift */,
 				F293344A2F75282300E04DD0 /* EditorToolbarView.swift */,
 				F29334552F754FD700E04DD0 /* EditorFeaturesView.swift */,
 				F291A8732F77530800F5839A /* AudioBottomSheetView */,
@@ -884,6 +904,7 @@
 				F25D1C532F740FAB00B82DC2 /* MediaClip.swift in Sources */,
 				F29334492F751AB900E04DD0 /* EditorRenderView.swift in Sources */,
 				F2TXTCV112FAA400100E04DD1 /* EditorCanvasTextOverlayView.swift in Sources */,
+				F2IMGOV112FAA500100E04DD1 /* EditorCanvasImageOverlayView.swift in Sources */,
 				F207CEBB2F767F9600A74075 /* TimelineConfiguration.swift in Sources */,
 				A1E0TL012F90000000E04DD1 /* TimelineLayoutProvider.swift in Sources */,
 				F291A8832F77E45A00F5839A /* VideoThumbnailPipeline.swift in Sources */,
@@ -994,6 +1015,9 @@
 				F2TEXT0132FAA200100E04DD1 /* OverlayGenerating.swift in Sources */,
 				F291A8912F78163200F5839A /* UIColor+Extension.swift in Sources */,
 				F2TEXT0152FAA200100E04DD1 /* TextOverlayRenderingService.swift in Sources */,
+				F2OVCLIP12F90402000E04DD1 /* OverlayCanvasClip.swift in Sources */,
+				F2OVCBND12F90402000E04DD1 /* EditorCanvasOverlayBindings.swift in Sources */,
+				F2OVUCAS12F90402000E04DD1 /* BuildEditorCanvasOverlayState.swift in Sources */,
 				A1E0PB052F90000000E04DD0 /* EditorViewModel.swift in Sources */,
 				A1E0TA012F90000000E04DD2 /* TimelineArranging.swift in Sources */,
 				A1E0TA032F90000000E04DD2 /* MasterTrackTimelineArranger.swift in Sources */,

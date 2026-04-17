@@ -23,9 +23,10 @@ extension EditorViewController: EditorFeaturesViewDelegate {
             return
         }
         if item.id == "textEdit" {
-            if let clipId = renderView.highlightedTextOverlayClipId {
-                presentTextEditSheet(for: clipId)
-            }
+            guard let clipId = renderView.activeOverlayClipId,
+                  viewModel.textOverlayDescriptor(for: clipId) != nil
+            else { return }
+            presentTextEditSheet(for: clipId)
             return
         }
         if item.id == "delete" {
@@ -89,7 +90,7 @@ extension EditorViewController {
         viewModel.removeClip(withId: clipId)
         selectedTimelineClipId = nil
         timelineView.deselectAllTracks()
-        syncTextOverlayFromProject()
+        syncCanvasOverlaysFromProject()
 
         let end = viewModel.projectSnapshot().totalDuration.seconds
         latestPlaybackTimelineSeconds = min(max(0, latestPlaybackTimelineSeconds), max(end, 0))

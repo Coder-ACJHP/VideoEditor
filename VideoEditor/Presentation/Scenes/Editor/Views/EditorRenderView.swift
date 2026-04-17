@@ -12,17 +12,6 @@
 import AVFoundation
 import UIKit
 
-// MARK: - Text overlay canvas binding
-
-/// One row of UIKit text on the preview canvas (driven by `EditorViewModel` + playhead, not by `AVComposition`).
-struct TextOverlayCanvasBinding: Equatable {
-    let clipId: UUID
-    var descriptor: TextOverlayDescriptor
-    var transform: TransformEffect
-    var allowsTransformGestures: Bool
-    var showsSelectionChrome: Bool
-}
-
 // MARK: - Delegate
 
 protocol EditorRenderViewDelegate: AnyObject {
@@ -32,14 +21,10 @@ protocol EditorRenderViewDelegate: AnyObject {
 }
 
 @MainActor
-protocol EditorRenderViewTextOverlayDelegate: AnyObject {
-    func editorRenderView(
-        _ renderView: EditorRenderView,
-        didUpdateTextOverlayClipId clipId: UUID,
-        transform: TransformEffect
-    )
-    /// User touched text on the canvas; align timeline selection to this clip.
-    func editorRenderView(_ renderView: EditorRenderView, didRequestActivateTextClipId clipId: UUID)
+protocol EditorRenderViewOverlayDelegate: AnyObject {
+    func editorRenderView(_ renderView: EditorRenderView, clipId: UUID, didUpdateTransform transform: TransformEffect)
+    /// User tapped an overlay on the canvas; keep timeline selection in sync.
+    func editorRenderView(_ renderView: EditorRenderView, didActivateClip clipId: UUID)
 }
 
 // MARK: - EditorRenderView
@@ -64,7 +49,7 @@ final class EditorRenderView: UIView {
     // MARK: - Public
 
     weak var delegate: EditorRenderViewDelegate?
-    weak var textOverlayDelegate: EditorRenderViewTextOverlayDelegate?
+    weak var overlayDelegate: EditorRenderViewOverlayDelegate?
 
     /// Read-only expansion state; mutated via `setExpanded(_:)`.
     private(set) var isExpanded = false
@@ -75,8 +60,8 @@ final class EditorRenderView: UIView {
     /// Same as `canvas.videoLayer` — use when wiring `AVPlayer` from services.
     var hostedPlayerLayer: AVPlayerLayer { canvas.videoLayer }
 
-    /// Text overlays share the same coordinate space as the video canvas.
-    private let textOverlayHost: UIView = {
+    /// Text + sticker overlays share the same coordinate space as the video canvas.
+    private let canvasOverlayHost: UIView = {
         let v = UIView()
         v.backgroundColor = .clear
         v.isUserInteractionEnabled = true
@@ -86,11 +71,11 @@ final class EditorRenderView: UIView {
 
     private var textOverlayViewsByClipId: [UUID: EditorCanvasTextOverlayView] = [:]
     private var textOverlayViewPool: [EditorCanvasTextOverlayView] = []
-    private let textOverlayPoolCapacity = 16
-    private var activeTextOverlayClipId: UUID?
-
-    /// Currently selected text clip on the timeline (feature rail `Edit` uses this).
-    var highlightedTextOverlayClipId: UUID? { activeTextOverlayClipId }
+    private var stickerOverlayViewsByClipId: [UUID: EditorCanvasImageOverlayView] = [:]
+    private var stickerOverlayViewPool: [EditorCanvasImageOverlayView] = []
+    private let overlayViewPoolCapacity = 16
+    /// Overlay clip that shows handles / selection (text or sticker).
+    private(set) var activeOverlayClipId: UUID?
 
     // MARK: - Private UI
 
@@ -131,14 +116,14 @@ final class EditorRenderView: UIView {
         translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(canvas)
-        canvas.addSubview(textOverlayHost)
+        canvas.addSubview(canvasOverlayHost)
         addSubview(toggleButton)
 
         NSLayoutConstraint.activate([
-            textOverlayHost.topAnchor.constraint(equalTo: canvas.topAnchor),
-            textOverlayHost.leadingAnchor.constraint(equalTo: canvas.leadingAnchor),
-            textOverlayHost.trailingAnchor.constraint(equalTo: canvas.trailingAnchor),
-            textOverlayHost.bottomAnchor.constraint(equalTo: canvas.bottomAnchor),
+            canvasOverlayHost.topAnchor.constraint(equalTo: canvas.topAnchor),
+            canvasOverlayHost.leadingAnchor.constraint(equalTo: canvas.leadingAnchor),
+            canvasOverlayHost.trailingAnchor.constraint(equalTo: canvas.trailingAnchor),
+            canvasOverlayHost.bottomAnchor.constraint(equalTo: canvas.bottomAnchor),
         ])
 
         // 9:16 portrait by default (width = height × 9/16).
@@ -193,25 +178,35 @@ final class EditorRenderView: UIView {
         toggleButton.accessibilityLabel = expanded ? "Collapse preview" : "Expand preview"
     }
 
-    /// Applies visible text rows for the current playhead; reuses `EditorCanvasTextOverlayView` instances from a pool.
-    func applyTextOverlayBindings(_ bindings: [TextOverlayCanvasBinding]) {
-        let wantedIds = Set(bindings.map(\.clipId))
+    /// Applies visible text + sticker overlays; `paintOrder` is back-to-front (matches timeline paint order).
+    func applyOverlays(
+        text: [TextCanvasBinding],
+        stickers: [StickerCanvasBinding],
+        paintOrder: [UUID]
+    ) {
+        let wantedText = Set(text.map(\.clipId))
+        let wantedSticker = Set(stickers.map(\.clipId))
+        let wantedAny = wantedText.union(wantedSticker)
 
-        for (id, view) in textOverlayViewsByClipId where !wantedIds.contains(id) {
+        for (id, view) in textOverlayViewsByClipId where !wantedText.contains(id) {
             textOverlayViewsByClipId.removeValue(forKey: id)
             retireTextOverlayViewToPool(view)
         }
+        for (id, view) in stickerOverlayViewsByClipId where !wantedSticker.contains(id) {
+            stickerOverlayViewsByClipId.removeValue(forKey: id)
+            retireStickerOverlayViewToPool(view)
+        }
 
-        guard !bindings.isEmpty else {
-            textOverlayHost.isHidden = true
-            if let active = activeTextOverlayClipId, !wantedIds.contains(active) {
-                activeTextOverlayClipId = nil
+        guard !wantedAny.isEmpty else {
+            canvasOverlayHost.isHidden = true
+            if let active = activeOverlayClipId, !wantedAny.contains(active) {
+                activeOverlayClipId = nil
             }
             return
         }
-        textOverlayHost.isHidden = false
+        canvasOverlayHost.isHidden = false
 
-        for binding in bindings {
+        for binding in text {
             if let existing = textOverlayViewsByClipId[binding.clipId] {
                 existing.update(descriptor: binding.descriptor)
                 existing.update(transform: binding.transform)
@@ -228,28 +223,57 @@ final class EditorRenderView: UIView {
                 textOverlayViewsByClipId[binding.clipId] = overlay
                 if overlay.superview == nil {
                     overlay.translatesAutoresizingMaskIntoConstraints = false
-                    textOverlayHost.addSubview(overlay)
-                    NSLayoutConstraint.activate([
-                        overlay.topAnchor.constraint(equalTo: textOverlayHost.topAnchor),
-                        overlay.leadingAnchor.constraint(equalTo: textOverlayHost.leadingAnchor),
-                        overlay.trailingAnchor.constraint(equalTo: textOverlayHost.trailingAnchor),
-                        overlay.bottomAnchor.constraint(equalTo: textOverlayHost.bottomAnchor),
-                    ])
+                    canvasOverlayHost.addSubview(overlay)
+                    NSLayoutConstraint.activate(overlayEdgeConstraints(for: overlay))
                 }
                 overlay.setCanvasSelectionActive(binding.showsSelectionChrome)
                 overlay.setTransformGesturesEnabled(binding.allowsTransformGestures)
             }
         }
 
-        for binding in bindings {
-            if let v = textOverlayViewsByClipId[binding.clipId] {
-                textOverlayHost.bringSubviewToFront(v)
+        for binding in stickers {
+            if let existing = stickerOverlayViewsByClipId[binding.clipId] {
+                existing.update(imageURL: binding.imageURL)
+                existing.update(transform: binding.transform)
+                existing.delegate = self
+                existing.setCanvasSelectionActive(binding.showsSelectionChrome)
+                existing.setTransformGesturesEnabled(binding.allowsTransformGestures)
+            } else {
+                let overlay = dequeueOrCreateStickerOverlayView(
+                    clipId: binding.clipId,
+                    imageURL: binding.imageURL,
+                    transform: binding.transform
+                )
+                overlay.delegate = self
+                stickerOverlayViewsByClipId[binding.clipId] = overlay
+                if overlay.superview == nil {
+                    overlay.translatesAutoresizingMaskIntoConstraints = false
+                    canvasOverlayHost.addSubview(overlay)
+                    NSLayoutConstraint.activate(overlayEdgeConstraints(for: overlay))
+                }
+                overlay.setCanvasSelectionActive(binding.showsSelectionChrome)
+                overlay.setTransformGesturesEnabled(binding.allowsTransformGestures)
             }
         }
 
-        if let active = activeTextOverlayClipId, !wantedIds.contains(active) {
-            activeTextOverlayClipId = nil
+        for clipId in paintOrder {
+            if let v = textOverlayViewsByClipId[clipId] ?? stickerOverlayViewsByClipId[clipId] {
+                canvasOverlayHost.bringSubviewToFront(v)
+            }
         }
+
+        if let active = activeOverlayClipId, !wantedAny.contains(active) {
+            activeOverlayClipId = nil
+        }
+    }
+
+    private func overlayEdgeConstraints(for overlay: UIView) -> [NSLayoutConstraint] {
+        [
+            overlay.topAnchor.constraint(equalTo: canvasOverlayHost.topAnchor),
+            overlay.leadingAnchor.constraint(equalTo: canvasOverlayHost.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: canvasOverlayHost.trailingAnchor),
+            overlay.bottomAnchor.constraint(equalTo: canvasOverlayHost.bottomAnchor),
+        ]
     }
 
     private func dequeueOrCreateTextOverlayView(
@@ -272,24 +296,49 @@ final class EditorRenderView: UIView {
     private func retireTextOverlayViewToPool(_ view: EditorCanvasTextOverlayView) {
         view.removeFromSuperview()
         view.prepareForPooling()
-        guard textOverlayViewPool.count < textOverlayPoolCapacity else { return }
+        guard textOverlayViewPool.count < overlayViewPoolCapacity else { return }
         textOverlayViewPool.append(view)
     }
 
-    /// Selection from timeline or canvas: yellow chrome and bring to front inside the host.
-    func setActiveTextOverlayClipId(_ clipId: UUID?) {
-        activeTextOverlayClipId = clipId
-        refreshTextOverlaySelectionAppearance()
+    private func dequeueOrCreateStickerOverlayView(
+        clipId: UUID,
+        imageURL: URL,
+        transform: TransformEffect
+    ) -> EditorCanvasImageOverlayView {
+        if let pooled = stickerOverlayViewPool.popLast() {
+            pooled.applyConfiguration(clipID: clipId, imageURL: imageURL, transform: transform)
+            return pooled
+        }
+        return EditorCanvasImageOverlayView(clipID: clipId, imageURL: imageURL, transform: transform)
     }
 
-    private func refreshTextOverlaySelectionAppearance() {
+    private func retireStickerOverlayViewToPool(_ view: EditorCanvasImageOverlayView) {
+        view.removeFromSuperview()
+        view.prepareForPooling()
+        guard stickerOverlayViewPool.count < overlayViewPoolCapacity else { return }
+        stickerOverlayViewPool.append(view)
+    }
+
+    /// Selection from timeline or canvas: yellow chrome and transform gestures for the active overlay clip.
+    func setActiveOverlayClipId(_ clipId: UUID?) {
+        activeOverlayClipId = clipId
+        refreshOverlaySelectionAppearance()
+    }
+
+    private func refreshOverlaySelectionAppearance() {
         for (id, view) in textOverlayViewsByClipId {
-            let isActive = (id == activeTextOverlayClipId)
+            let isActive = (id == activeOverlayClipId)
             view.setCanvasSelectionActive(isActive)
             view.setTransformGesturesEnabled(isActive)
         }
-        if let id = activeTextOverlayClipId, let v = textOverlayViewsByClipId[id] {
-            textOverlayHost.bringSubviewToFront(v)
+        for (id, view) in stickerOverlayViewsByClipId {
+            let isActive = (id == activeOverlayClipId)
+            view.setCanvasSelectionActive(isActive)
+            view.setTransformGesturesEnabled(isActive)
+        }
+        if let id = activeOverlayClipId,
+           let v = textOverlayViewsByClipId[id] ?? stickerOverlayViewsByClipId[id] {
+            canvasOverlayHost.bringSubviewToFront(v)
         }
     }
 
@@ -297,8 +346,9 @@ final class EditorRenderView: UIView {
         textOverlayViewsByClipId[clipId]?.update(descriptor: descriptor)
     }
 
-    func updateTextOverlayTransform(clipId: UUID, transform: TransformEffect) {
+    func updateOverlayTransform(clipId: UUID, transform: TransformEffect) {
         textOverlayViewsByClipId[clipId]?.update(transform: transform)
+        stickerOverlayViewsByClipId[clipId]?.update(transform: transform)
     }
 
     // MARK: - Actions
@@ -313,11 +363,25 @@ final class EditorRenderView: UIView {
 extension EditorRenderView: EditorCanvasTextOverlayViewDelegate {
 
     func canvasTextOverlayView(_ view: EditorCanvasTextOverlayView, didUpdate transform: TransformEffect) {
-        textOverlayDelegate?.editorRenderView(self, didUpdateTextOverlayClipId: view.clipID, transform: transform)
+        overlayDelegate?.editorRenderView(self, clipId: view.clipID, didUpdateTransform: transform)
     }
 
     func canvasTextOverlayViewDidRequestActivation(_ view: EditorCanvasTextOverlayView) {
-        setActiveTextOverlayClipId(view.clipID)
-        textOverlayDelegate?.editorRenderView(self, didRequestActivateTextClipId: view.clipID)
+        setActiveOverlayClipId(view.clipID)
+        overlayDelegate?.editorRenderView(self, didActivateClip: view.clipID)
+    }
+}
+
+// MARK: - EditorCanvasImageOverlayViewDelegate
+
+extension EditorRenderView: EditorCanvasImageOverlayViewDelegate {
+
+    func canvasImageOverlayView(_ view: EditorCanvasImageOverlayView, didUpdate transform: TransformEffect) {
+        overlayDelegate?.editorRenderView(self, clipId: view.clipID, didUpdateTransform: transform)
+    }
+
+    func canvasImageOverlayViewDidRequestActivation(_ view: EditorCanvasImageOverlayView) {
+        setActiveOverlayClipId(view.clipID)
+        overlayDelegate?.editorRenderView(self, didActivateClip: view.clipID)
     }
 }

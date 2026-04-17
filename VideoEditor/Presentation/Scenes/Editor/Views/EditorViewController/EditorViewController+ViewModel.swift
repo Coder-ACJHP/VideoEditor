@@ -10,7 +10,7 @@ extension EditorViewController: EditorViewModelDelegate {
 
     func editorViewModelDidRequestTimelineReload(_ viewModel: EditorViewModel) {
         timelineView.configure(with: viewModel.projectSnapshot())
-        syncTextOverlayFromProject()
+        syncCanvasOverlaysFromProject()
     }
 
     func editorViewModel(_ viewModel: EditorViewModel, didUpdateToolbarTotalDuration formatted: String) {

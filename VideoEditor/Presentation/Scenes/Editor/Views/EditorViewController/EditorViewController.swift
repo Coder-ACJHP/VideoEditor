@@ -106,7 +106,7 @@ final class EditorViewController: UIViewController {
             self.viewModel.notePlaybackTimelineSeconds(self.latestPlaybackTimelineSeconds)
             self.timelineView.setCurrentTime(seconds)
             self.toolbarView.setCurrentTime(self.viewModel.formattedScrubTime(seconds: seconds))
-            self.refreshTextOverlayCanvas()
+            self.refreshCanvasOverlays()
         }
         playbackManager.onPlaybackDidReachEnd = { [weak self] in
             self?.toolbarView.setPlaying(false)
@@ -130,7 +130,7 @@ final class EditorViewController: UIViewController {
                 compositionGeneration: self.viewModel.previewCompositionGeneration,
                 in: self.renderView
             )
-            self.refreshTextOverlayCanvas()
+            self.refreshCanvasOverlays()
         }
     }
 
@@ -155,7 +155,7 @@ final class EditorViewController: UIViewController {
 
     private func setupRenderView() {
         renderView.delegate = self
-        renderView.textOverlayDelegate = self
+        renderView.overlayDelegate = self
         view.addSubview(renderView)
         let heightConstraint = renderView.heightAnchor.constraint(
             equalTo: view.heightAnchor,
@@ -247,7 +247,7 @@ final class EditorViewController: UIViewController {
                 in: self.renderView
             )
             self.playbackManager.seek(to: resumeSeconds)
-            self.refreshTextOverlayCanvas()
+            self.refreshCanvasOverlays()
         }
     }
 
@@ -265,8 +265,8 @@ final class EditorViewController: UIViewController {
         let initial = TextOverlayDescriptor.defaultNew(text: "")
         textSheetDraft = (id: draftClipId, descriptor: initial, transform: .identity)
         textSheetFocusedExistingClipIds = []
-        renderView.setActiveTextOverlayClipId(draftClipId)
-        refreshTextOverlayCanvas()
+        renderView.setActiveOverlayClipId(draftClipId)
+        refreshCanvasOverlays()
         let sheet = TextBottomSheetViewController(
             initialDescriptor: initial,
             onDescriptorChange: { [weak self] descriptor in
@@ -279,7 +279,7 @@ final class EditorViewController: UIViewController {
             },
             onCancel: { [weak self] in
                 self?.clearTextSheetSessionState()
-                self?.syncTextOverlayFromProject()
+                self?.syncCanvasOverlaysFromProject()
             },
             onComplete: { [weak self] descriptor in
                 guard let self else { return }
@@ -298,8 +298,8 @@ final class EditorViewController: UIViewController {
         guard let initial = viewModel.textOverlayDescriptor(for: clipId) else { return }
         textSheetDraft = nil
         textSheetFocusedExistingClipIds = [clipId]
-        renderView.setActiveTextOverlayClipId(clipId)
-        refreshTextOverlayCanvas()
+        renderView.setActiveOverlayClipId(clipId)
+        refreshCanvasOverlays()
         let sheet = TextBottomSheetViewController(
             initialDescriptor: initial,
             onDescriptorChange: { [weak self] descriptor in
@@ -307,64 +307,41 @@ final class EditorViewController: UIViewController {
             },
             onCancel: { [weak self] in
                 self?.clearTextSheetSessionState()
-                self?.syncTextOverlayFromProject()
+                self?.syncCanvasOverlaysFromProject()
             },
             onComplete: { [weak self] descriptor in
                 self?.clearTextSheetSessionState()
                 self?.viewModel.replaceTextOverlayDescriptor(clipId: clipId, descriptor: descriptor)
-                self?.syncTextOverlayFromProject()
+                self?.syncCanvasOverlaysFromProject()
             }
         )
         present(sheet, animated: true)
     }
 
-    func syncTextOverlayFromProject() {
-        refreshTextOverlayCanvas()
+    func syncCanvasOverlaysFromProject() {
+        refreshCanvasOverlays()
     }
 
-    /// Binds UIKit overlays from the view model at the current playhead (text is not read from `AVComposition`).
-    func refreshTextOverlayCanvas() {
+    /// Binds UIKit text + sticker overlays at the playhead (omitted from preview `AVComposition`, like text).
+    func refreshCanvasOverlays() {
         let playhead = CMTime(seconds: latestPlaybackTimelineSeconds, preferredTimescale: 600)
-        renderView.applyTextOverlayBindings(makeTextOverlayCanvasBindings(playhead: playhead))
-    }
-
-    private func makeTextOverlayCanvasBindings(playhead: CMTime) -> [TextOverlayCanvasBinding] {
-        let activeAtTime = Set(viewModel.activeTextOverlays(at: playhead).map(\.id))
-        let highlightId = renderView.highlightedTextOverlayClipId
-
-        var bindings: [TextOverlayCanvasBinding] = []
-
-        for item in viewModel.allTextOverlayItems() {
-            let forcedBySheet = textSheetFocusedExistingClipIds.contains(item.id)
-            let forcedByTimelineSelection = selectedTimelineClipId == item.id
-            guard activeAtTime.contains(item.id) || forcedBySheet || forcedByTimelineSelection else { continue }
-            let isHighlighted = item.id == highlightId
-            bindings.append(
-                TextOverlayCanvasBinding(
-                    clipId: item.id,
-                    descriptor: item.descriptor,
-                    transform: item.transform,
-                    allowsTransformGestures: isHighlighted,
-                    showsSelectionChrome: isHighlighted
-                )
-            )
+        let draft = textSheetDraft.map {
+            EditorCanvasTextDraft(clipId: $0.id, descriptor: $0.descriptor, transform: $0.transform)
         }
-
-        if let draft = textSheetDraft {
-            let id = draft.id
-            let isHighlighted = id == highlightId
-            bindings.append(
-                TextOverlayCanvasBinding(
-                    clipId: id,
-                    descriptor: draft.descriptor,
-                    transform: draft.transform,
-                    allowsTransformGestures: isHighlighted,
-                    showsSelectionChrome: isHighlighted
-                )
-            )
-        }
-
-        return bindings
+        let input = EditorCanvasOverlayRefreshInput(
+            clips: viewModel.overlayCanvasClipsInPaintOrder(),
+            playhead: playhead,
+            timelineSelectedClipId: selectedTimelineClipId,
+            canvasActiveClipId: renderView.activeOverlayClipId,
+            sheetFocusedClipIds: textSheetFocusedExistingClipIds,
+            textDraft: draft
+        )
+        let result = BuildEditorCanvasOverlayState.make(input: input)
+        renderView.applyOverlays(
+            text: result.textRows,
+            stickers: result.stickerRows,
+            paintOrder: result.paintOrderClipIds
+        )
     }
 
     func clearTextSheetSessionState() {

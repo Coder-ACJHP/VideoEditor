@@ -35,7 +35,7 @@
             parallelizable = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "F25D1BEE2F73F58000B82DC2"
+               BlueprintIdentifier = "F21B09762F91EEB800B83482"
                BuildableName = "VideoEditorTests.xctest"
                BlueprintName = "VideoEditorTests"
                ReferencedContainer = "container:VideoEditor.xcodeproj">

@@ -28,7 +28,13 @@ import UniformTypeIdentifiers
 
 protocol TimelineTrackViewDelegate: AnyObject {
     /// Fired when the user taps a clip block in this track lane.
-    func trackView(_ view: TimelineTrackView, didTapClipAt index: Int, clipId: UUID, mediaType: AssetIdentifier.MediaType)
+    func trackView(
+        _ view: TimelineTrackView,
+        didTapClipAt index: Int,
+        clipId: UUID,
+        mediaType: AssetIdentifier.MediaType,
+        laneTrackType: MediaTrack.TrackType
+    )
     /// Fired when the user deselects a clip (taps the same clip again).
     func trackViewDidDeselectClip(_ view: TimelineTrackView)
     /// Fired when a clip extends beyond the current track width, requesting the timeline to grow.
@@ -435,7 +441,13 @@ extension TimelineTrackView: TrackMediaViewDelegate {
         let clips = currentTrack?.clips ?? []
         guard clips.indices.contains(view.tag) else { return }
         let clip = clips[view.tag]
-        delegate?.trackView(self, didTapClipAt: view.tag, clipId: clip.id, mediaType: clip.asset.mediaType)
+        delegate?.trackView(
+            self,
+            didTapClipAt: view.tag,
+            clipId: clip.id,
+            mediaType: clip.asset.mediaType,
+            laneTrackType: trackType
+        )
         updateSeamTransitionControlAppearance()
     }
 

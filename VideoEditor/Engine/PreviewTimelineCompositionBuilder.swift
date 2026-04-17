@@ -64,6 +64,9 @@ final class PreviewTimelineCompositionBuilder: CompositionBuilding {
                         let leadIn = Self.compositionLeadIn(forClipAt: idx, in: oClips)
                         // Text uses `PreviewTextOverlaySpec` when `options.includeTextOverlaysInVideoComposition` is set.
                         if case .text = clip.asset { continue }
+                        if !options.includeRasterStickerOverlaysInVideoComposition, case .image = clip.asset {
+                            continue
+                        }
                         if let item = try await makePreviewClip(from: clip, compositionLeadIn: leadIn, donor: donor) {
                             overlayChannel.append(item)
                         }

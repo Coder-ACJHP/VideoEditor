@@ -25,7 +25,7 @@ extension EditorViewController: PHPickerViewControllerDelegate {
                     in: self.renderView
                 )
                 self.playbackManager.seek(to: resumeSeconds)
-                self.syncTextOverlayFromProject()
+                self.syncCanvasOverlaysFromProject()
             } catch {
                 self.presentEditorImportAlert(error.localizedDescription)
             }

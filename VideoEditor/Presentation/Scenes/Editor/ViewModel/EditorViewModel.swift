@@ -94,9 +94,13 @@ final class EditorViewModel {
     /// (e.g. video/audio/overlay raster clips changed). Text-only timeline edits return `false`.
     @discardableResult
     func syncTracksFromTimeline(_ tracks: [MediaTrack]) -> Bool {
-        guard tracks != workingTracks else { return false }
+        let merged = Self.mergingAuthoritativeCanvasOverlayVisuals(
+            baseline: workingTracks,
+            timelineTracks: tracks
+        )
+        guard merged != workingTracks else { return false }
         let fingerprintBefore = previewCompositionFingerprintNow()
-        workingTracks = tracks
+        workingTracks = merged
         let fingerprintAfter = previewCompositionFingerprintNow()
         if fingerprintBefore != fingerprintAfter {
             previewCompositionGeneration &+= 1
@@ -197,9 +201,9 @@ final class EditorViewModel {
         await appendClip(to: .overlay, asset: .text(descriptor), duration: 3, initialTransform: transform)
     }
 
-    /// Canvas gestures: updates `TransformEffect` for the matching `MediaClip.id`.
-    /// Does not touch preview composition (text is UIKit-only during editing).
-    func updateTextOverlayTransform(clipId: UUID, transform: TransformEffect) {
+    /// Canvas gestures: updates `TransformEffect` for the matching overlay `MediaClip.id`.
+    /// Preview raster overlays are UIKit-driven; composition fingerprint ignores their transforms.
+    func updateOverlayTransform(clipId: UUID, transform: TransformEffect) {
         for trackIndex in workingTracks.indices where workingTracks[trackIndex].trackType == .overlay {
             guard let clipIndex = workingTracks[trackIndex].clips.firstIndex(where: { $0.id == clipId }) else { continue }
             if workingTracks[trackIndex].clips[clipIndex].transform == transform { return }
@@ -260,6 +264,40 @@ final class EditorViewModel {
     /// Text clips visible at `time` on the project timeline.
     func activeTextOverlays(at time: CMTime) -> [TextOverlayItem] {
         allTextOverlayItems().filter { $0.isActive(at: time) }
+    }
+
+    /// Overlay text + stickers in paint order (matches `EditingProject.tracks` overlay lanes).
+    func overlayCanvasClipsInPaintOrder() -> [OverlayCanvasClip] {
+        var clips: [OverlayCanvasClip] = []
+        for track in workingTracks where track.trackType == .overlay {
+            for clip in track.clips {
+                switch clip.asset {
+                case .text(let descriptor):
+                    clips.append(
+                        OverlayCanvasClip(
+                            id: clip.id,
+                            timelineRange: clip.timelineRange,
+                            transform: clip.transform,
+                            opacity: clip.opacity,
+                            kind: .text(descriptor)
+                        )
+                    )
+                case .image(let url):
+                    clips.append(
+                        OverlayCanvasClip(
+                            id: clip.id,
+                            timelineRange: clip.timelineRange,
+                            transform: clip.transform,
+                            opacity: clip.opacity,
+                            kind: .sticker(url)
+                        )
+                    )
+                default:
+                    break
+                }
+            }
+        }
+        return clips
     }
 
     /// Keeps the model playhead in sync for queries that do not receive an explicit `CMTime`.
@@ -386,13 +424,20 @@ final class EditorViewModel {
         let sourceDuration = await AssetDurationResolver.sourceDuration(for: asset) ?? safeDuration
         let sourceRange = ClipTimeRange(startSeconds: 0, durationSeconds: sourceDuration)
 
+        let resolvedTransform: TransformEffect = {
+            if trackType == .overlay, case .image = asset, initialTransform == .identity {
+                return .overlayStickerDefault
+            }
+            return initialTransform
+        }()
+
         if alwaysCreateNewTrack {
             let range = ClipTimeRange(startSeconds: 0, durationSeconds: timelineDuration)
             let clip = MediaClip(
                 asset: asset,
                 timelineRange: range,
                 sourceRange: sourceRange,
-                transform: initialTransform
+                transform: resolvedTransform
             )
             workingTracks.append(MediaTrack(trackType: trackType, clips: [clip]))
             return
@@ -405,7 +450,7 @@ final class EditorViewModel {
                 asset: asset,
                 timelineRange: range,
                 sourceRange: sourceRange,
-                transform: initialTransform
+                transform: resolvedTransform
             )
             workingTracks[existingIndex].clips.append(clip)
         } else {
@@ -414,7 +459,7 @@ final class EditorViewModel {
                 asset: asset,
                 timelineRange: range,
                 sourceRange: sourceRange,
-                transform: initialTransform
+                transform: resolvedTransform
             )
             workingTracks.append(MediaTrack(trackType: trackType, clips: [clip]))
         }
@@ -423,6 +468,43 @@ final class EditorViewModel {
     private func publishTimelineAndToolbar() {
         delegate?.editorViewModelDidRequestTimelineReload(self)
         delegate?.editorViewModel(self, didUpdateToolbarTotalDuration: formattedProjectEndTime())
+    }
+
+    /// Canvas gestures update `workingTracks` for overlay text and stickers; timeline lanes keep snapshots that
+    /// omit those edits until a lane-specific sync. Re-apply `transform` / `opacity` from the model for matching ids.
+    private static func mergingAuthoritativeCanvasOverlayVisuals(
+        baseline: [MediaTrack],
+        timelineTracks: [MediaTrack]
+    ) -> [MediaTrack] {
+        var visualByClipId: [UUID: (transform: TransformEffect, opacity: Float)] = [:]
+        for track in baseline where track.trackType == .overlay {
+            for clip in track.clips {
+                switch clip.asset {
+                case .text, .image:
+                    visualByClipId[clip.id] = (clip.transform, clip.opacity)
+                default:
+                    break
+                }
+            }
+        }
+        guard !visualByClipId.isEmpty else { return timelineTracks }
+
+        var merged = timelineTracks
+        for trackIndex in merged.indices where merged[trackIndex].trackType == .overlay {
+            for clipIndex in merged[trackIndex].clips.indices {
+                switch merged[trackIndex].clips[clipIndex].asset {
+                case .text, .image:
+                    break
+                default:
+                    continue
+                }
+                let id = merged[trackIndex].clips[clipIndex].id
+                guard let preserved = visualByClipId[id] else { continue }
+                merged[trackIndex].clips[clipIndex].transform = preserved.transform
+                merged[trackIndex].clips[clipIndex].opacity = preserved.opacity
+            }
+        }
+        return merged
     }
 
     private func previewCompositionFingerprintNow() -> UInt64 {
@@ -442,8 +524,13 @@ final class EditorViewModel {
             hasher.combine(track.isMuted)
             hasher.combine(track.volume)
             for clip in track.clips {
-                if track.trackType == .overlay, case .text = clip.asset {
-                    continue
+                if track.trackType == .overlay {
+                    switch clip.asset {
+                    case .text, .image:
+                        continue
+                    default:
+                        break
+                    }
                 }
                 hasher.combine(clip.id)
                 hasher.combine(clip.asset)

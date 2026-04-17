@@ -30,6 +30,14 @@ nonisolated struct TransformEffect: Codable, Equatable, Hashable, Sendable {
         rotationAngle: 0
     )
 
+    /// Default placement for raster stickers on the overlay track (square box; user can resize on canvas).
+    static let overlayStickerDefault = TransformEffect(
+        normalizedCenter: CGPoint(x: 0.5, y: 0.5),
+        normalizedSize: CGSize(width: 0.32, height: 0.32),
+        normalizedScale: 1.0,
+        rotationAngle: 0
+    )
+
     // MARK: - Codable
 
     enum CodingKeys: String, CodingKey {

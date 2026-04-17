@@ -16,8 +16,15 @@ nonisolated struct CompositionBuildOptions: Sendable {
     /// Preview keeps this `false` so the editor can draw live text in UIKit.
     var includeTextOverlaysInVideoComposition: Bool = false
 
+    /// When `true`, file-backed `.image` clips on overlay tracks are baked into the composition (export).
+    /// Preview keeps this `false` so stickers are positioned with the same UIKit transform handles as text.
+    var includeRasterStickerOverlaysInVideoComposition: Bool = false
+
     static let previewDefault = CompositionBuildOptions()
-    static let exportWithText = CompositionBuildOptions(includeTextOverlaysInVideoComposition: true)
+    static let exportWithText = CompositionBuildOptions(
+        includeTextOverlaysInVideoComposition: true,
+        includeRasterStickerOverlaysInVideoComposition: true
+    )
 }
 
 /// Player item, composition, and video composition; all builders share this output shape.

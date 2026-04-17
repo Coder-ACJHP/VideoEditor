@@ -14,24 +14,30 @@ extension EditorViewController: EditorTimelineViewDelegate {
         viewModel.notePlaybackTimelineSeconds(latestPlaybackTimelineSeconds)
         toolbarView.setCurrentTime(viewModel.formattedScrubTime(seconds: seconds))
         playbackManager.seek(to: seconds)
-        refreshTextOverlayCanvas()
+        refreshCanvasOverlays()
     }
 
-    func timelineView(_ timeline: EditorTimelineView, didSelectClipWithId clipId: UUID, mediaType: AssetIdentifier.MediaType) {
+    func timelineView(
+        _ timeline: EditorTimelineView,
+        didSelectClipWithId clipId: UUID,
+        mediaType: AssetIdentifier.MediaType,
+        laneTrackType: MediaTrack.TrackType
+    ) {
         selectedTimelineClipId = clipId
-        if mediaType == .text {
-            renderView.setActiveTextOverlayClipId(clipId)
+        let canvasTransformable = laneTrackType == .overlay && (mediaType == .text || mediaType == .image)
+        if canvasTransformable {
+            renderView.setActiveOverlayClipId(clipId)
         } else {
-            renderView.setActiveTextOverlayClipId(nil)
+            renderView.setActiveOverlayClipId(nil)
         }
-        syncTextOverlayFromProject()
+        syncCanvasOverlaysFromProject()
         featuresView.showSubMenu(items: FeatureItem.subMenuItems(for: mediaType), animated: true)
     }
 
     func timelineViewDidDeselectAll(_ timeline: EditorTimelineView) {
         selectedTimelineClipId = nil
-        renderView.setActiveTextOverlayClipId(nil)
-        syncTextOverlayFromProject()
+        renderView.setActiveOverlayClipId(nil)
+        syncCanvasOverlaysFromProject()
         featuresView.showMainMenu(animated: true)
     }
 
@@ -41,8 +47,8 @@ extension EditorViewController: EditorTimelineViewDelegate {
 
     func timelineView(_ timeline: EditorTimelineView, didUpdateTracks tracks: [MediaTrack]) {
         let previewCompositionNeedsReload = viewModel.syncTracksFromTimeline(tracks)
-        // Text (and other UIKit-only overlay state) still needs canvas refresh when timeline ranges move.
-        refreshTextOverlayCanvas()
+        // UIKit-only overlays (text + stickers) still need a canvas refresh when timeline ranges move.
+        refreshCanvasOverlays()
         guard previewCompositionNeedsReload else { return }
         let resumeSeconds = latestPlaybackTimelineSeconds
         Task { [weak self] in

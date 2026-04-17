@@ -6,21 +6,18 @@
 
 import UIKit
 
-extension EditorViewController: EditorRenderViewTextOverlayDelegate {
+extension EditorViewController: EditorRenderViewOverlayDelegate {
 
-    func editorRenderView(
-        _ renderView: EditorRenderView,
-        didUpdateTextOverlayClipId clipId: UUID,
-        transform: TransformEffect
-    ) {
+    func editorRenderView(_ renderView: EditorRenderView, clipId: UUID, didUpdateTransform transform: TransformEffect) {
         if let draft = textSheetDraft, draft.id == clipId {
             textSheetDraft = (draft.id, draft.descriptor, transform)
             return
         }
-        viewModel.updateTextOverlayTransform(clipId: clipId, transform: transform)
+        viewModel.updateOverlayTransform(clipId: clipId, transform: transform)
+        refreshCanvasOverlays()
     }
 
-    func editorRenderView(_ renderView: EditorRenderView, didRequestActivateTextClipId clipId: UUID) {
+    func editorRenderView(_ renderView: EditorRenderView, didActivateClip clipId: UUID) {
         timelineView.selectClipOnTimeline(withId: clipId)
     }
 }

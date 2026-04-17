@@ -44,7 +44,8 @@ protocol EditorTimelineViewDelegate: AnyObject {
     func timelineView(
         _ timeline: EditorTimelineView,
         didSelectClipWithId clipId: UUID,
-        mediaType: AssetIdentifier.MediaType
+        mediaType: AssetIdentifier.MediaType,
+        laneTrackType: MediaTrack.TrackType
     )
     /// Fired when the user taps empty space in the timeline, deselecting all clips.
     func timelineViewDidDeselectAll(_ timeline: EditorTimelineView)
@@ -428,14 +429,14 @@ final class EditorTimelineView: UIView {
         for lane in dynamicTrackViews where lane !== selectedLane {
             lane.deselectAll()
         }
-        guard let mediaType = mediaTypeForClipId(clipId) else { return }
-        delegate?.timelineView(self, didSelectClipWithId: clipId, mediaType: mediaType)
+        guard let (laneTrackType, mediaType) = laneAndMediaTypeForClipId(clipId) else { return }
+        delegate?.timelineView(self, didSelectClipWithId: clipId, mediaType: mediaType, laneTrackType: laneTrackType)
     }
-    
-    private func mediaTypeForClipId(_ clipId: UUID) -> AssetIdentifier.MediaType? {
+
+    private func laneAndMediaTypeForClipId(_ clipId: UUID) -> (MediaTrack.TrackType, AssetIdentifier.MediaType)? {
         for track in currentTracks {
             if let clip = track.clips.first(where: { $0.id == clipId }) {
-                return clip.asset.mediaType
+                return (track.trackType, clip.asset.mediaType)
             }
         }
         return nil
@@ -663,11 +664,17 @@ extension EditorTimelineView: UIGestureRecognizerDelegate {
 
 extension EditorTimelineView: TimelineTrackViewDelegate {
 
-    func trackView(_ view: TimelineTrackView, didTapClipAt index: Int, clipId: UUID, mediaType: AssetIdentifier.MediaType) {
+    func trackView(
+        _ view: TimelineTrackView,
+        didTapClipAt index: Int,
+        clipId: UUID,
+        mediaType: AssetIdentifier.MediaType,
+        laneTrackType: MediaTrack.TrackType
+    ) {
         for lane in dynamicTrackViews where lane !== view {
             lane.deselectAll()
         }
-        delegate?.timelineView(self, didSelectClipWithId: clipId, mediaType: mediaType)
+        delegate?.timelineView(self, didSelectClipWithId: clipId, mediaType: mediaType, laneTrackType: laneTrackType)
     }
 
     func trackViewDidDeselectClip(_ view: TimelineTrackView) {

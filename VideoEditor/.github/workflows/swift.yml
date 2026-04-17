@@ -1,0 +1,63 @@
+name: iOS Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (Simulator)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Resolve Xcode project and verify scheme
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE"
+          PROJ="$ROOT/VideoEditor.xcodeproj"
+          if [[ ! -f "$PROJ/project.pbxproj" ]]; then
+            PROJ=$(find "$ROOT" -name "VideoEditor.xcodeproj" -type d 2>/dev/null | head -1 || true)
+          fi
+          if [[ -z "${PROJ:-}" ]] || [[ ! -f "$PROJ/project.pbxproj" ]]; then
+            echo "::error::VideoEditor.xcodeproj not found under $ROOT"
+            echo "Discovered .xcodeproj paths (max depth 8):"
+            find "$ROOT" -maxdepth 8 -name "*.xcodeproj" -type d 2>/dev/null || true
+            echo "Repository root listing:"
+            ls -la "$ROOT"
+            exit 1
+          fi
+          echo "Using Xcode project: $PROJ"
+          echo "XCODEPROJ=$PROJ" >> "$GITHUB_ENV"
+          SCHEME_FILE="$PROJ/xcshareddata/xcschemes/VideoEditor.xcscheme"
+          if [[ ! -f "$SCHEME_FILE" ]]; then
+            echo "::error::Shared scheme missing: $SCHEME_FILE"
+            echo "In Xcode: Product → Scheme → Manage Schemes → enable Shared for VideoEditor, then commit xcshareddata/xcschemes/."
+            exit 1
+          fi
+          xcodebuild -list -project "$PROJ"
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          DERIVED_DATA="$RUNNER_TEMP/DerivedData-VideoEditor"
+          mkdir -p "$DERIVED_DATA"
+          xcodebuild \
+            -project "$XCODEPROJ" \
+            -scheme VideoEditor \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$DERIVED_DATA" \
+            build

@@ -1,0 +1,19 @@
+disabled_rules:
+  - trailing_whitespace
+  - line_length
+  - force_cast
+  - force_try
+  - type_body_length
+opt_in_rules:
+  - empty_count
+  - vertical_whitespace
+included:
+  - VideoEditor
+  - VideoEditorTests
+excluded:
+  - Pods
+  - Carthage
+  - fastlane/
+  - vendor/
+  - .build/
+  - DerivedData/

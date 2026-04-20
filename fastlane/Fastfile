@@ -4,9 +4,21 @@
 default_platform(:ios)
 
 platform :ios do
+    	desc "Check code style"
+  	lane :lint do
+    		swiftlint(
+      			executable: "swiftlint",
+				config_file: ".swiftlint.yaml",
+      			strict: false,
+      			output_file: "fastlane/swiftlint-report.html",
+      			reporter: "html",
+			ignore_exit_status: true
+    		)
+  	end
 
     desc "Run all tests ve report the results"
-    lane :run_tests do
+    lane :tests do
+	lint
         scan(
             scheme: "VideoEditor",
             destination: "platform=iOS Simulator,name=iPhone 17 Pro Max,OS=latest",

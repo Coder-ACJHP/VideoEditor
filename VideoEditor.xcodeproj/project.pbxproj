@@ -122,9 +122,13 @@
 		F2F897BF2F7DB6D90060F039 /* TimelineSkeletonAnimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2F897BE2F7DB6D90060F039 /* TimelineSkeletonAnimator.swift */; };
 		F2F897C12F7E70E70060F039 /* CIFilter+Transitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2F897C02F7E70E70060F039 /* CIFilter+Transitions.swift */; };
 		F2F897C42F7E77780060F039 /* disintegrate.jpg in Resources */ = {isa = PBXBuildFile; fileRef = F2F897C32F7E77780060F039 /* disintegrate.jpg */; };
+		F2IMGOV112FAA500100E04DD1 /* EditorCanvasImageOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2IMGOV122FAA500100E04DD1 /* EditorCanvasImageOverlayView.swift */; };
 		F2MOVERR12F90418000E04DD1 /* MovieExportError.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2MOVERR2F90418000E04DD1 /* MovieExportError.swift */; };
 		F2MOVEXP12F90418000E04DD1 /* ProjectMovieExporting.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2MOVEXP2F90418000E04DD1 /* ProjectMovieExporting.swift */; };
 		F2MOVPHO12F90418000E04DD1 /* PhotoLibraryMovieExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2MOVPHO2F90418000E04DD1 /* PhotoLibraryMovieExporter.swift */; };
+		F2OVCBND12F90402000E04DD1 /* EditorCanvasOverlayBindings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2OVCBND22F90402000E04DD1 /* EditorCanvasOverlayBindings.swift */; };
+		F2OVCLIP12F90402000E04DD1 /* OverlayCanvasClip.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2OVCLIP22F90402000E04DD1 /* OverlayCanvasClip.swift */; };
+		F2OVUCAS12F90402000E04DD1 /* BuildEditorCanvasOverlayState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2OVUCAS22F90402000E04DD1 /* BuildEditorCanvasOverlayState.swift */; };
 		F2PREVB012F90403000E04DD1 /* CMTimeRange+PreviewComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2PREVF012F90403000E04DD1 /* CMTimeRange+PreviewComposition.swift */; };
 		F2PREVB022F90403000E04DD1 /* CoreImage+VideoPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2PREVF022F90403000E04DD1 /* CoreImage+VideoPreview.swift */; };
 		F2PREVB032F90403000E04DD1 /* AVCompositionTrack+PreviewTransforms.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2PREVF032F90403000E04DD1 /* AVCompositionTrack+PreviewTransforms.swift */; };
@@ -141,10 +145,6 @@
 		F2TXTAL112FAA400100E04DD1 /* TextOverlayTextAlignment.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2TXTAL122FAA400100E04DD1 /* TextOverlayTextAlignment.swift */; };
 		F2TXTCI312FAA500100E04DD1 /* TextOverlayPreviewCIRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2TXTCI322FAA500100E04DD1 /* TextOverlayPreviewCIRenderer.swift */; };
 		F2TXTCV112FAA400100E04DD1 /* EditorCanvasTextOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2TXTCV122FAA400100E04DD1 /* EditorCanvasTextOverlayView.swift */; };
-		F2IMGOV112FAA500100E04DD1 /* EditorCanvasImageOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2IMGOV122FAA500100E04DD1 /* EditorCanvasImageOverlayView.swift */; };
-		F2OVCBND12F90402000E04DD1 /* EditorCanvasOverlayBindings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2OVCBND22F90402000E04DD1 /* EditorCanvasOverlayBindings.swift */; };
-		F2OVCLIP12F90402000E04DD1 /* OverlayCanvasClip.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2OVCLIP22F90402000E04DD1 /* OverlayCanvasClip.swift */; };
-		F2OVUCAS12F90402000E04DD1 /* BuildEditorCanvasOverlayState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2OVUCAS22F90402000E04DD1 /* BuildEditorCanvasOverlayState.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -274,9 +274,13 @@
 		F2F897BE2F7DB6D90060F039 /* TimelineSkeletonAnimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineSkeletonAnimator.swift; sourceTree = "<group>"; };
 		F2F897C02F7E70E70060F039 /* CIFilter+Transitions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CIFilter+Transitions.swift"; sourceTree = "<group>"; };
 		F2F897C32F7E77780060F039 /* disintegrate.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = disintegrate.jpg; sourceTree = "<group>"; };
+		F2IMGOV122FAA500100E04DD1 /* EditorCanvasImageOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorCanvasImageOverlayView.swift; sourceTree = "<group>"; };
 		F2MOVERR2F90418000E04DD1 /* MovieExportError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovieExportError.swift; sourceTree = "<group>"; };
 		F2MOVEXP2F90418000E04DD1 /* ProjectMovieExporting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectMovieExporting.swift; sourceTree = "<group>"; };
 		F2MOVPHO2F90418000E04DD1 /* PhotoLibraryMovieExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoLibraryMovieExporter.swift; sourceTree = "<group>"; };
+		F2OVCBND22F90402000E04DD1 /* EditorCanvasOverlayBindings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorCanvasOverlayBindings.swift; sourceTree = "<group>"; };
+		F2OVCLIP22F90402000E04DD1 /* OverlayCanvasClip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayCanvasClip.swift; sourceTree = "<group>"; };
+		F2OVUCAS22F90402000E04DD1 /* BuildEditorCanvasOverlayState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildEditorCanvasOverlayState.swift; sourceTree = "<group>"; };
 		F2PREVF012F90403000E04DD1 /* CMTimeRange+PreviewComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CMTimeRange+PreviewComposition.swift"; sourceTree = "<group>"; };
 		F2PREVF022F90403000E04DD1 /* CoreImage+VideoPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CoreImage+VideoPreview.swift"; sourceTree = "<group>"; };
 		F2PREVF032F90403000E04DD1 /* AVCompositionTrack+PreviewTransforms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AVCompositionTrack+PreviewTransforms.swift"; sourceTree = "<group>"; };
@@ -293,10 +297,6 @@
 		F2TXTAL122FAA400100E04DD1 /* TextOverlayTextAlignment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextOverlayTextAlignment.swift; sourceTree = "<group>"; };
 		F2TXTCI322FAA500100E04DD1 /* TextOverlayPreviewCIRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextOverlayPreviewCIRenderer.swift; sourceTree = "<group>"; };
 		F2TXTCV122FAA400100E04DD1 /* EditorCanvasTextOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorCanvasTextOverlayView.swift; sourceTree = "<group>"; };
-		F2IMGOV122FAA500100E04DD1 /* EditorCanvasImageOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorCanvasImageOverlayView.swift; sourceTree = "<group>"; };
-		F2OVCBND22F90402000E04DD1 /* EditorCanvasOverlayBindings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorCanvasOverlayBindings.swift; sourceTree = "<group>"; };
-		F2OVCLIP22F90402000E04DD1 /* OverlayCanvasClip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayCanvasClip.swift; sourceTree = "<group>"; };
-		F2OVUCAS22F90402000E04DD1 /* BuildEditorCanvasOverlayState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildEditorCanvasOverlayState.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -544,22 +544,6 @@
 			path = Editor;
 			sourceTree = "<group>";
 		};
-		F2EDMODL2F90402000E04DD0 /* Models */ = {
-			isa = PBXGroup;
-			children = (
-				F2OVCBND22F90402000E04DD1 /* EditorCanvasOverlayBindings.swift */,
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
-		F2EDUCAS2F90402000E04DD0 /* UseCases */ = {
-			isa = PBXGroup;
-			children = (
-				F2OVUCAS22F90402000E04DD1 /* BuildEditorCanvasOverlayState.swift */,
-			);
-			path = UseCases;
-			sourceTree = "<group>";
-		};
 		F25D1C332F73F69B00B82DC2 /* Export */ = {
 			isa = PBXGroup;
 			children = (
@@ -749,6 +733,22 @@
 				F291A88E2F780C4400F5839A /* sticker2.png */,
 			);
 			path = "Test Media";
+			sourceTree = "<group>";
+		};
+		F2EDMODL2F90402000E04DD0 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				F2OVCBND22F90402000E04DD1 /* EditorCanvasOverlayBindings.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		F2EDUCAS2F90402000E04DD0 /* UseCases */ = {
+			isa = PBXGroup;
+			children = (
+				F2OVUCAS22F90402000E04DD1 /* BuildEditorCanvasOverlayState.swift */,
+			);
+			path = UseCases;
 			sourceTree = "<group>";
 		};
 		F2F897C22F7E776A0060F039 /* Engine Assets */ = {
@@ -1054,6 +1054,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = N26XM7U465;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.coder.test.VideoEditorTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1075,6 +1076,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = N26XM7U465;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.coder.test.VideoEditorTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";

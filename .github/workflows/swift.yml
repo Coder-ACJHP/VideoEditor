@@ -30,8 +30,10 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
 
-      - name: Run Fastlane Quality Check
+      - name: Run Fastlane Test check
         run: bundle exec fastlane run_tests
         env:
           LANG: en_US.UTF-8
           LC_ALL: en_US.UTF-8
+          FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: 60
+          FASTLANE_XCODEBUILD_SETTINGS_RETRIES: 10

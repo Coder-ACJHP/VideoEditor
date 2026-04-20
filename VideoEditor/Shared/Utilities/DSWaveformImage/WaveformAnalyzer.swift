@@ -60,7 +60,7 @@ public struct WaveformAnalyzer: Sendable {
     ///
     /// Calls the completionHandler on a background thread.
     @available(*, deprecated, renamed: "samples(fromAudioAt:count:qos:)")
-    public func samples(fromAudioAt audioAssetURL: URL, count: Int, qos: DispatchQoS.QoSClass = .userInitiated, completionHandler: @escaping (Result<[Float], Error>) -> ()) {
+    public func samples(fromAudioAt audioAssetURL: URL, count: Int, qos: DispatchQoS.QoSClass = .userInitiated, completionHandler: @escaping (Result<[Float], Error>) -> Void) {
         Task {
             do {
                 let samples = try await samples(fromAudioAt: audioAssetURL, count: count, qos: qos)
@@ -125,7 +125,7 @@ fileprivate extension WaveformAnalyzer {
             }
 
             var readBufferLength = 0
-            var readBufferPointer: UnsafeMutablePointer<Int8>? = nil
+            var readBufferPointer: UnsafeMutablePointer<Int8>?
             CMBlockBufferGetDataPointer(blockBuffer, atOffset: 0, lengthAtOffsetOut: &readBufferLength, totalLengthOut: nil, dataPointerOut: &readBufferPointer)
             sampleBuffer.append(UnsafeBufferPointer(start: readBufferPointer, count: readBufferLength))
             if fftBands != nil {

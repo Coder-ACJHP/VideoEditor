@@ -123,7 +123,7 @@ final class EditorRenderView: UIView {
             canvasOverlayHost.topAnchor.constraint(equalTo: canvas.topAnchor),
             canvasOverlayHost.leadingAnchor.constraint(equalTo: canvas.leadingAnchor),
             canvasOverlayHost.trailingAnchor.constraint(equalTo: canvas.trailingAnchor),
-            canvasOverlayHost.bottomAnchor.constraint(equalTo: canvas.bottomAnchor),
+            canvasOverlayHost.bottomAnchor.constraint(equalTo: canvas.bottomAnchor)
         ])
 
         // 9:16 portrait by default (width = height × 9/16).
@@ -144,7 +144,7 @@ final class EditorRenderView: UIView {
 
             // Toggle button: pinned to the bottom center of the render view.
             toggleButton.centerXAnchor.constraint(equalTo: centerXAnchor),
-            toggleButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+            toggleButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10)
         ])
     }
 
@@ -272,7 +272,7 @@ final class EditorRenderView: UIView {
             overlay.topAnchor.constraint(equalTo: canvasOverlayHost.topAnchor),
             overlay.leadingAnchor.constraint(equalTo: canvasOverlayHost.leadingAnchor),
             overlay.trailingAnchor.constraint(equalTo: canvasOverlayHost.trailingAnchor),
-            overlay.bottomAnchor.constraint(equalTo: canvasOverlayHost.bottomAnchor),
+            overlay.bottomAnchor.constraint(equalTo: canvasOverlayHost.bottomAnchor)
         ]
     }
 

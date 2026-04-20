@@ -82,7 +82,7 @@ final class TextOverlayRenderingService: OverlayGenerating, @unchecked Sendable 
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: scaledFont,
                 .foregroundColor: textColor,
-                .paragraphStyle: paragraph,
+                .paragraphStyle: paragraph
             ]
             let inset = box.insetBy(dx: 6, dy: 4)
             (descriptor.text as NSString).draw(with: inset, options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: attrs, context: nil)
@@ -121,7 +121,7 @@ final class TextOverlayRenderingService: OverlayGenerating, @unchecked Sendable 
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: baseFont,
                 .foregroundColor: textColor,
-                .paragraphStyle: paragraph,
+                .paragraphStyle: paragraph
             ]
 
             (descriptor.text as NSString).draw(

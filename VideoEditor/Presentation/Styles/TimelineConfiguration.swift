@@ -59,7 +59,7 @@ struct TimelineConfiguration {
     let masterTransitionAffordanceSize: CGFloat = 24
 
     // MARK: - Colors
-    
+
     struct TitleShadow {
         let color: CGColor = UIColor.black.cgColor
         let offset: CGSize = CGSize(width: 0, height: 1)
@@ -83,7 +83,7 @@ struct TimelineConfiguration {
     let trackTitleFont: UIFont = .systemFont(ofSize: 14, weight: .semibold)
     let trackTitleTextColor: UIColor = .white.withAlphaComponent(0.92)
     let trackTitleShadow: TitleShadow = TitleShadow()
-    
+
     let reorderInsertionGuideLineWidth: CGFloat = 6
     let reorderInsertionGuideLineColor: UIColor = .systemYellow
 
@@ -107,7 +107,7 @@ struct TimelineConfiguration {
             case .overlay: return overlayLaneHeight
         }
     }
-    
+
     /// The total pixel height the timeline occupies.
     /// Expose as a static constant so EditorViewController can set a matching constraint.
     func preferredHeight() -> CGFloat {

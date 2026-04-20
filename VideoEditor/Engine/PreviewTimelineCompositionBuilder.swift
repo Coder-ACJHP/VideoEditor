@@ -86,9 +86,9 @@ final class PreviewTimelineCompositionBuilder: CompositionBuilding {
             textOverlays: textOverlaySpecs,
             canvasBackgroundSettings: project.canvasBackground
         )
-        
+
         try await insertAudioTracks(from: project, into: composition, projectDuration: projectDur)
-        
+
         for media in [AVMediaType.video, AVMediaType.audio] {
             for compTrack in composition.tracks(withMediaType: media) {
                 let trackEnd = compTrack.timeRange.end
@@ -100,14 +100,14 @@ final class PreviewTimelineCompositionBuilder: CompositionBuilding {
                 }
             }
         }
-        
+
         let videoTracks = composition.tracks(withMediaType: .video)
         let playerItem = AVPlayerItem(asset: composition)
         if !videoTracks.isEmpty {
             playerItem.videoComposition = videoComposition
             playerItem.seekingWaitsForVideoCompositionRendering = true
         }
-        
+
         let audioTracks = composition.tracks(withMediaType: .audio)
         let audioMix: AVAudioMix?
         if !audioTracks.isEmpty {
@@ -157,25 +157,25 @@ final class PreviewTimelineCompositionBuilder: CompositionBuilding {
         }
         return specs
     }
-    
+
     // MARK: - Clip → preview source
-    
+
     // Downsample core image to avoid memory consuming
     private func downsampleCIImage(from url: URL) -> CIImage? {
         // 1. Load the image and apply orientation
         let options: [CIImageOption: Any] = [.applyOrientationProperty: true]
         guard var ci = CIImage(contentsOf: url, options: options) else { return nil }
-        
+
         // 2. Smart resize (Downsampling)
         let imageSize = ci.extent.size
-        
+
         // If any dimention of image is grater than render size start process
         if imageSize.width > renderSize.width || imageSize.height > renderSize.height {
-            
+
             let widthRatio = renderSize.width / imageSize.width
             let heightRatio = renderSize.height / imageSize.height
             let scale = max(widthRatio, heightRatio)
-            
+
             // Downsample only (do not dissort by scaling up)
             if scale < 1.0 {
                 let transform = CGAffineTransform(scaleX: scale, y: scale)
@@ -184,7 +184,7 @@ final class PreviewTimelineCompositionBuilder: CompositionBuilding {
         }
         return ci
     }
-    
+
     /// If the previous clip has `transitionOut`, this clip starts earlier in the composition by `leadIn` while the timeline model stays end-to-end.
     private static func compositionLeadIn(forClipAt index: Int, in clips: [MediaClip]) -> CMTime {
         guard index > 0 else { return .zero }
@@ -206,25 +206,25 @@ final class PreviewTimelineCompositionBuilder: CompositionBuilding {
         let timeline = clip.timelineRange.cmTimeRange
         let compositionStart = CMTimeSubtract(timeline.start, compositionLeadIn)
         let wallDuration = CMTimeAdd(timeline.duration, compositionLeadIn)
-        
+
         switch clip.asset {
             case .image(let url):
-                
+
                 guard let donor, let downsampled = downsampleCIImage(from: url) else { return nil }
-                
+
                 let source = StillImagePreviewMediaSource(
                     ciImage: downsampled,
                     scaledDuration: wallDuration,
                     donorTrack: donor.1,
                     donorSourceSlice: donor.2
                 )
-                
+
                 let item = PreviewTimelineVideoClip(mediaSource: source)
                 item.startTime = compositionStart
                 item.visualStyle.opacity = clip.opacity
                 item.transitionOut = clip.transitionOut
                 return item
-                
+
             case .video(let url):
                 let asset = cachedAsset(for: url)
                 let vTracks = try await asset.loadTracks(withMediaType: .video)
@@ -246,14 +246,14 @@ final class PreviewTimelineCompositionBuilder: CompositionBuilding {
                 item.visualStyle.opacity = clip.opacity
                 item.transitionOut = clip.transitionOut
                 return item
-                
+
             case .phAssetVideo, .phAssetImage, .text, .audio:
                 return nil
         }
     }
-    
+
     // MARK: - Audio tracks
-    
+
     private func insertAudioTracks(
         from project: EditingProject,
         into composition: AVMutableComposition,
@@ -266,7 +266,7 @@ final class PreviewTimelineCompositionBuilder: CompositionBuilding {
                 withMediaType: .audio,
                 preferredTrackID: kCMPersistentTrackID_Invalid
             ) else { continue }
-            
+
             for clip in track.clips {
                 guard case .audio(let url) = clip.asset else { continue }
                 let asset = cachedAsset(for: url)
@@ -280,7 +280,7 @@ final class PreviewTimelineCompositionBuilder: CompositionBuilding {
                 let selected = CMTimeRange(start: s0, duration: CMTimeSubtract(s1, s0))
                 try compTrack.insertTimeRange(selected, of: a0, at: clip.timelineRange.cmTimeRange.start)
             }
-            
+
             let trackEnd = compTrack.timeRange.end
             if CMTimeCompare(projectDuration, trackEnd) > 0 {
                 let gap = CMTimeSubtract(projectDuration, trackEnd)
@@ -290,7 +290,7 @@ final class PreviewTimelineCompositionBuilder: CompositionBuilding {
             }
         }
     }
-    
+
     private func cachedAsset(for url: URL) -> AVURLAsset {
         if let existing = assetCache[url] { return existing }
         let asset = AVURLAsset(url: url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
@@ -300,4 +300,3 @@ final class PreviewTimelineCompositionBuilder: CompositionBuilding {
 }
 
 typealias CompositionBuilder = PreviewTimelineCompositionBuilder
-

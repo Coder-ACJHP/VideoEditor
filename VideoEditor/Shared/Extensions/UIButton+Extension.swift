@@ -3,12 +3,11 @@
 // VideoEditor
 //  Created by Coder ACJHP on 27.03.2026.
 
-
 import UIKit
 import Foundation
 
 extension UIButton {
-    
+
     func dropOuterShadow(withColor color: UIColor, radius: CGFloat, opacity: Float = 1.0, offset: CGSize) {
         self.layer.masksToBounds = false
         self.layer.shadowOffset = offset
@@ -18,7 +17,7 @@ extension UIButton {
         self.layer.rasterizationScale = UIScreen.main.scale
         self.layer.shouldRasterize = true
     }
-    
+
     func addDefaultAnimation() {
         // Default iOS 15 and earlier press animation
         self.configurationUpdateHandler = { button in

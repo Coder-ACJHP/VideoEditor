@@ -49,7 +49,7 @@ final class CanvasBackgroundBottomSheetViewController: UIViewController {
     private lazy var tabSwitch: UISegmentedControl = {
         let s = UISegmentedControl(items: [
             String(localized: "Solid"),
-            String(localized: "Gradient"),
+            String(localized: "Gradient")
         ])
         s.translatesAutoresizingMaskIntoConstraints = false
         s.selectedSegmentIndex = 0
@@ -146,7 +146,7 @@ final class CanvasBackgroundBottomSheetViewController: UIViewController {
             scrollContentStack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             scrollContentStack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
             scrollContentStack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
-            scrollContentStack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
+            scrollContentStack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
         ])
 
         scrollContentStack.layoutMargins = UIEdgeInsets(top: 0, left: 20, bottom: 0, right: 20)
@@ -210,7 +210,7 @@ final class CanvasBackgroundBottomSheetViewController: UIViewController {
             ("#415A77", String(localized: "Steel")),
             ("#7209B7", String(localized: "Purple")),
             ("#FFD166", String(localized: "Gold")),
-            ("#06D6A0", String(localized: "Mint")),
+            ("#06D6A0", String(localized: "Mint"))
         ]
 
         var rowStack: UIStackView?
@@ -386,7 +386,7 @@ private final class GradientSwatchControl: UIControl {
 
         gradientLayer.colors = [
             UIColor(hexString: preset.startHex).cgColor,
-            UIColor(hexString: preset.endHex).cgColor,
+            UIColor(hexString: preset.endHex).cgColor
         ]
         gradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
         gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)

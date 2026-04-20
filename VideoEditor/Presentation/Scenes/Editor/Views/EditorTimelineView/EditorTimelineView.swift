@@ -67,22 +67,22 @@ protocol EditorTimelineViewDelegate: AnyObject {
 
 @MainActor
 final class EditorTimelineView: UIView {
-    
+
     private var config: TimelineConfiguration { .default }
     private var timelineLayout: TimelineLayoutProvider { config.timelineLayout }
-    
+
     // MARK: - Public
-    
+
     weak var delegate: EditorTimelineViewDelegate?
     private let thumbnailGenerator: ThumbnailGenerating
-    
+
     /// When the user scrolls the timeline horizontally, ignore playback-driven auto-scroll to avoid fighting the finger.
     var isUserAdjustingHorizontalScroll: Bool {
         tracksScrollView.isDragging || tracksScrollView.isDecelerating
     }
-    
+
     // MARK: - Scroll Views
-    
+
     // Disable scrolling to avoid miss actual time in timeline
     private let rulerScrollView: UIScrollView = {
         let sv = UIScrollView()
@@ -97,7 +97,7 @@ final class EditorTimelineView: UIView {
         sv.translatesAutoresizingMaskIntoConstraints = false
         return sv
     }()
-    
+
     private let tracksScrollView: UIScrollView = {
         let sv = UIScrollView()
         sv.showsVerticalScrollIndicator   = true
@@ -109,21 +109,21 @@ final class EditorTimelineView: UIView {
         sv.translatesAutoresizingMaskIntoConstraints = false
         return sv
     }()
-    
+
     private let rulerContentView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
-    
+
     private let tracksContentView: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
         return v
     }()
-    
+
     // MARK: - Timeline Sub-components
-    
+
     private let rulerView = TimelineRulerView()
     private let tracksStackView: UIStackView = {
         let sv = UIStackView()
@@ -133,9 +133,9 @@ final class EditorTimelineView: UIView {
         sv.translatesAutoresizingMaskIntoConstraints = false
         return sv
     }()
-    
+
     private let playheadView = TimelinePlayheadView()
-    
+
     /// Floating control over the track stack; opens the system photo picker from the delegate.
     private lazy var addMediaButton: UIButton = {
         var config = UIButton.Configuration.filled()
@@ -152,7 +152,7 @@ final class EditorTimelineView: UIView {
         button.addTarget(self, action: #selector(addMediaTapped), for: .touchUpInside)
         return button
     }()
-    
+
     private lazy var reorderClipsWarningLabel: UILabel = {
         let label = UILabel()
         label.text = "Reordering removes the transition between two clips."
@@ -165,35 +165,35 @@ final class EditorTimelineView: UIView {
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
-    
+
     // MARK: - State
-    
+
     /// Backing constraints for timeline width; replaced when project duration changes.
     private var rulerContentWidthConstraint: NSLayoutConstraint?
     private var tracksContentWidthConstraint: NSLayoutConstraint?
     private var rulerHeightConstraint: NSLayoutConstraint?
-    
+
     /// Runtime-created lanes (audio/video/overlay). Rebuilt on every configure call.
     private var dynamicTrackViews: [TimelineTrackView] = []
     /// Mutable snapshot of tracks currently rendered in the timeline.
     private var currentTracks: [MediaTrack] = []
-    
+
     /// Tap gesture that fires on empty space to clear all clip selections.
     private lazy var backgroundTapGesture: UITapGestureRecognizer = {
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleBackgroundTap))
         tap.delegate = self
         return tap
     }()
-    
+
     /// Prevents the scrub-delegate callback from firing when we move the offset programmatically.
     private var isSettingTimeExternally = false
-    
+
     /// Set once after the first valid layout pass to avoid resetting contentOffset on rotation.
     private var hasAppliedInitialOffset = false
-    
+
     /// If `setCurrentTime` runs before layout (inset still zero), stash here and apply at end of `layoutSubviews`.
     private var pendingPlaybackSyncSeconds: Double?
-    
+
     private let skeletonAnimator = TimelineSkeletonAnimator()
 
     /// Applies or clears `transitionOut` on the master video clip at `clipIndex` and syncs the timeline model.
@@ -203,19 +203,19 @@ final class EditorTimelineView: UIView {
     }
 
     // MARK: - Init
-    
+
     init(frame: CGRect = .zero, thumbnailGenerator: ThumbnailGenerating) {
         self.thumbnailGenerator = thumbnailGenerator
         super.init(frame: frame)
         setupView()
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     // MARK: - Layout
-    
+
     override func layoutSubviews() {
         super.layoutSubviews()
         applyInitialOffsetIfNeeded()
@@ -223,13 +223,13 @@ final class EditorTimelineView: UIView {
         bringSubviewToFront(addMediaButton)
         bringSubviewToFront(reorderClipsWarningLabel)
     }
-    
+
     // MARK: - Private Setup
-    
+
     private func setupView() {
         backgroundColor = config.backgroundColor
         translatesAutoresizingMaskIntoConstraints = false
-        
+
         setupRulerScrollView()
         setupTracksScrollView()
         setupRulerContentView()
@@ -241,7 +241,7 @@ final class EditorTimelineView: UIView {
         setupAddMediaButton()
         setupWarningLabel()
     }
-    
+
     private func setupRulerScrollView() {
         addSubview(rulerScrollView)
         let heightConstraint = rulerScrollView.heightAnchor.constraint(equalToConstant: config.rulerHeight)
@@ -250,57 +250,57 @@ final class EditorTimelineView: UIView {
             rulerScrollView.topAnchor.constraint(equalTo: topAnchor),
             rulerScrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             rulerScrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            heightConstraint,
+            heightConstraint
         ])
     }
-    
+
     private func setupTracksScrollView() {
         tracksScrollView.delegate = self
         tracksScrollView.addGestureRecognizer(backgroundTapGesture)
         addSubview(tracksScrollView)
-        
+
         NSLayoutConstraint.activate([
             tracksScrollView.topAnchor.constraint(equalTo: rulerScrollView.bottomAnchor),
             tracksScrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             tracksScrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            tracksScrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            tracksScrollView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
     }
-    
+
     private func setupRulerContentView() {
         rulerScrollView.addSubview(rulerContentView)
-        
+
         let initialWidth = timelineLayout.xPosition(forSeconds: config.minimumProjectDuration) + (config.horizontalEdgePadding * 2)
         let widthConstraint = rulerContentView.widthAnchor.constraint(equalToConstant: initialWidth)
         rulerContentWidthConstraint = widthConstraint
-        
+
         NSLayoutConstraint.activate([
             rulerContentView.topAnchor.constraint(equalTo: rulerScrollView.contentLayoutGuide.topAnchor),
             rulerContentView.leadingAnchor.constraint(equalTo: rulerScrollView.contentLayoutGuide.leadingAnchor),
             rulerContentView.trailingAnchor.constraint(equalTo: rulerScrollView.contentLayoutGuide.trailingAnchor),
             rulerContentView.bottomAnchor.constraint(equalTo: rulerScrollView.contentLayoutGuide.bottomAnchor),
             rulerContentView.heightAnchor.constraint(equalTo: rulerScrollView.frameLayoutGuide.heightAnchor),
-            widthConstraint,
+            widthConstraint
         ])
     }
-    
+
     private func setupTracksContentView() {
         tracksScrollView.addSubview(tracksContentView)
-        
+
         let initialWidth = timelineLayout.xPosition(forSeconds: config.minimumProjectDuration)
         let widthConstraint = tracksContentView.widthAnchor.constraint(equalToConstant: initialWidth)
         tracksContentWidthConstraint = widthConstraint
-        
+
         NSLayoutConstraint.activate([
             tracksContentView.topAnchor.constraint(equalTo: tracksScrollView.contentLayoutGuide.topAnchor),
             tracksContentView.leadingAnchor.constraint(equalTo: tracksScrollView.contentLayoutGuide.leadingAnchor),
             tracksContentView.trailingAnchor.constraint(equalTo: tracksScrollView.contentLayoutGuide.trailingAnchor),
             tracksContentView.bottomAnchor.constraint(equalTo: tracksScrollView.contentLayoutGuide.bottomAnchor),
             tracksContentView.heightAnchor.constraint(greaterThanOrEqualTo: tracksScrollView.frameLayoutGuide.heightAnchor),
-            widthConstraint,
+            widthConstraint
         ])
     }
-    
+
     private func setupRuler() {
         rulerView.layout = config.timelineLayout
         rulerContentView.addSubview(rulerView)
@@ -308,10 +308,10 @@ final class EditorTimelineView: UIView {
             rulerView.topAnchor.constraint(equalTo: rulerContentView.topAnchor),
             rulerView.leadingAnchor.constraint(equalTo: rulerContentView.leadingAnchor, constant: config.horizontalEdgePadding),
             rulerView.trailingAnchor.constraint(equalTo: rulerContentView.trailingAnchor, constant: -config.horizontalEdgePadding),
-            rulerView.bottomAnchor.constraint(equalTo: rulerContentView.bottomAnchor),
+            rulerView.bottomAnchor.constraint(equalTo: rulerContentView.bottomAnchor)
         ])
     }
-    
+
     private func setupTracksStack() {
         tracksContentView.addSubview(tracksStackView)
         NSLayoutConstraint.activate([
@@ -319,10 +319,10 @@ final class EditorTimelineView: UIView {
             tracksStackView.trailingAnchor.constraint(equalTo: tracksContentView.trailingAnchor),
             tracksStackView.topAnchor.constraint(greaterThanOrEqualTo: tracksContentView.topAnchor, constant: config.trackPadding),
             tracksStackView.bottomAnchor.constraint(lessThanOrEqualTo: tracksContentView.bottomAnchor, constant: -config.trackPadding),
-            tracksStackView.centerYAnchor.constraint(equalTo: tracksContentView.centerYAnchor),
+            tracksStackView.centerYAnchor.constraint(equalTo: tracksContentView.centerYAnchor)
         ])
     }
-    
+
     private func setupPlayhead() {
         // The playhead is a non-interactive overlay on top of everything, pinned to the
         // EditorTimelineView (not the scroll view) so it never moves with the content.
@@ -331,10 +331,10 @@ final class EditorTimelineView: UIView {
             playheadView.topAnchor.constraint(equalTo: topAnchor),
             playheadView.bottomAnchor.constraint(equalTo: bottomAnchor),
             playheadView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            playheadView.widthAnchor.constraint(equalToConstant: 12),
+            playheadView.widthAnchor.constraint(equalToConstant: 12)
         ])
     }
-    
+
     private func setupAddMediaButton() {
         addSubview(addMediaButton)
         let size: CGFloat = 42
@@ -342,9 +342,9 @@ final class EditorTimelineView: UIView {
             addMediaButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             addMediaButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
             addMediaButton.widthAnchor.constraint(equalToConstant: size),
-            addMediaButton.heightAnchor.constraint(equalToConstant: size),
+            addMediaButton.heightAnchor.constraint(equalToConstant: size)
         ])
-        
+
         addMediaButton
             .dropOuterShadow(
                 withColor: .white.withAlphaComponent(0.2),
@@ -352,7 +352,7 @@ final class EditorTimelineView: UIView {
                 offset: .zero
             )
     }
-    
+
     private func setupWarningLabel() {
         addSubview(reorderClipsWarningLabel)
         NSLayoutConstraint.activate([
@@ -360,54 +360,54 @@ final class EditorTimelineView: UIView {
             reorderClipsWarningLabel.centerYAnchor.constraint(equalTo: addMediaButton.centerYAnchor)
         ])
     }
-    
+
     @objc private func addMediaTapped() {
         delegate?.timelineViewDidTapAddMedia(self)
     }
-    
+
     // MARK: - Initial Offset
-    
+
     /// Centers the timeline at t = 0 after the first valid layout.
     /// Called from layoutSubviews to guarantee bounds are non-zero.
     private func applyInitialOffsetIfNeeded() {
         let half = bounds.width / 2
         guard half > 0 else { return }
-        
+
         // Content insets create virtual padding so time=0 can sit under the centered playhead.
         rulerScrollView.contentInset = UIEdgeInsets(top: 0, left: half, bottom: 0, right: half)
         tracksScrollView.contentInset = UIEdgeInsets(top: 0, left: half, bottom: 0, right: half)
-        
+
         if !hasAppliedInitialOffset {
             hasAppliedInitialOffset = true
             // Offset -left puts the very start of the content under the playhead.
             tracksScrollView.contentOffset = CGPoint(x: -half, y: 0)
             rulerScrollView.contentOffset = CGPoint(x: config.horizontalEdgePadding - half, y: 0)
         }
-        
+
         if let pending = pendingPlaybackSyncSeconds {
             pendingPlaybackSyncSeconds = nil
             setCurrentTime(pending)
         }
     }
-    
+
     // MARK: - Public API
-    
+
     /// Populates the timeline from the project model.
     /// Safe to call multiple times (e.g. after adding / removing clips).
     func configure(with project: EditingProject) {
-        
+
         skeletonAnimator.start(stackView: tracksStackView, overlayHost: tracksContentView)
-        
+
         currentTracks = project.tracks
         let duration = max(project.totalDuration.seconds, config.minimumProjectDuration)
         let tracksTimelineWidth = timelineLayout.xPosition(forSeconds: duration)
         let rulerTimelineWidth = tracksTimelineWidth + (config.horizontalEdgePadding * 2)
         rulerContentWidthConstraint?.constant = rulerTimelineWidth
         tracksContentWidthConstraint?.constant = tracksTimelineWidth
-        
+
         rebuildTrackViews(with: currentTracks) { [weak self] in
             guard let self else { return }
-            
+
             rulerView.setNeedsDisplay()
             updateVerticalScrollingState()
             layoutIfNeeded()
@@ -415,7 +415,7 @@ final class EditorTimelineView: UIView {
             skeletonAnimator.stop()
         }
     }
-    
+
     /// Programmatic selection from canvas or elsewhere: highlights the clip on its lane and clears other lanes.
     func selectClipOnTimeline(withId clipId: UUID) {
         var selectedLane: TimelineTrackView?
@@ -441,7 +441,7 @@ final class EditorTimelineView: UIView {
         }
         return nil
     }
-    
+
     /// Programmatically scrolls the timeline so the playhead sits over `seconds`.
     /// Does NOT fire the delegate.
     func setCurrentTime(_ seconds: Double) {
@@ -460,7 +460,7 @@ final class EditorTimelineView: UIView {
         rulerScrollView.setContentOffset(CGPoint(x: x + config.horizontalEdgePadding, y: 0), animated: false)
         isSettingTimeExternally = false
     }
-    
+
     /// Expanded preview mode:
     /// - hides ruler and gives that vertical area to track lanes
     /// - focuses the bottom video lane as close to center as possible
@@ -468,9 +468,9 @@ final class EditorTimelineView: UIView {
         rulerHeightConstraint?.constant = isExpanded ? 0 : config.rulerHeight
         rulerScrollView.alpha = isExpanded ? 0 : 1
         rulerScrollView.isUserInteractionEnabled = !isExpanded
-        
+
         let updates = { self.layoutIfNeeded() }
-        
+
         if animated {
             UIView
                 .animate(
@@ -482,7 +482,7 @@ final class EditorTimelineView: UIView {
         } else {
             updates()
         }
-        
+
         if isExpanded {
             focusVideoLaneNearCenter(animated: animated)
         } else {
@@ -493,46 +493,46 @@ final class EditorTimelineView: UIView {
             )
         }
     }
-    
+
     // MARK: - Deselection
-    
+
     /// Deselects all clips across every track lane and notifies the delegate.
     func deselectAllTracks() {
         dynamicTrackViews.forEach { $0.deselectAll() }
         delegate?.timelineViewDidDeselectAll(self)
     }
-    
+
     @objc private func handleBackgroundTap(_ gesture: UITapGestureRecognizer) {
         deselectAllTracks()
     }
-    
+
     // MARK: - Dynamic Tracks
-    
-    private func rebuildTrackViews(with tracks: [MediaTrack], completion: (() -> Void)? = nil)  {
+
+    private func rebuildTrackViews(with tracks: [MediaTrack], completion: (() -> Void)? = nil) {
         let overlays = tracks.filter { $0.trackType == .overlay }
         let audios = tracks.filter { $0.trackType == .audio }
         let videos = tracks.filter { $0.trackType == .video }
-        
+
         let masterTrackDuration = videos
             .flatMap(\.clips)
             .map(\.timelineRange.endSeconds)
             .max()
-        
+
         // 1. Define the target structural layout for the timeline lanes.
         // We explicitly map the desired order (Overlays -> Audios -> Videos).
         // This safely replaces the previous logic of checking an actively-clearing array.
         var targetTracks: [(model: MediaTrack?, type: MediaTrack.TrackType)] = []
-        
+
         targetTracks.append(contentsOf: overlays.map { ($0, .overlay) })
         targetTracks.append(contentsOf: audios.isEmpty ? [(nil, .audio)] : audios.map { ($0, .audio) })
         targetTracks.append(contentsOf: videos.isEmpty ? [(nil, .video)] : videos.map { ($0, .video) })
-        
+
         var updatedTrackViews: [TimelineTrackView] = []
-        
+
         // 2. Synchronize existing UI with the target tracks: Reuse, Replace, or Add.
         for (index, target) in targetTracks.enumerated() {
             let durationLimit: Double? = (target.type == .video) ? nil : masterTrackDuration
-            
+
             // Check if we can reuse an existing view at this index
             if index < dynamicTrackViews.count, dynamicTrackViews[index].trackType == target.type {
                 // REUSE: The existing view matches the required track type. Just update its data.
@@ -543,7 +543,7 @@ final class EditorTimelineView: UIView {
                     durationLimitOverride: durationLimit
                 )
                 updatedTrackViews.append(lane)
-                
+
             } else {
                 // REPLACE or INSERT: The view is either missing or is the wrong track type.
                 let lane = TimelineTrackView(trackType: target.type, thumbnailGenerator: thumbnailGenerator)
@@ -554,7 +554,7 @@ final class EditorTimelineView: UIView {
                     layout: config.timelineLayout,
                     durationLimitOverride: durationLimit
                 )
-                
+
                 if index < dynamicTrackViews.count {
                     // Replace the old mismatched view inline
                     let oldView = dynamicTrackViews[index]
@@ -568,7 +568,7 @@ final class EditorTimelineView: UIView {
                 updatedTrackViews.append(lane)
             }
         }
-        
+
         // 3. CLEANUP: Remove any leftover views if the project track count shrank.
         if dynamicTrackViews.count > targetTracks.count {
             let leftovers = dynamicTrackViews.suffix(from: targetTracks.count)
@@ -577,18 +577,18 @@ final class EditorTimelineView: UIView {
                 oldView.removeFromSuperview()
             }
         }
-        
+
         // 4. Commit the new state
         dynamicTrackViews = updatedTrackViews
-        
+
         // 5. Complete operations (wait a sec to complete laying out views)
         let task = DispatchWorkItem { completion?() }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: task)
     }
-    
+
     // NOTE: Base audio/video placeholders are injected directly in `rebuildTrackViews`
     // to preserve strict visual order: overlays -> audio -> video.
-    
+
     private func updateVerticalScrollingState() {
         layoutIfNeeded()
         let contentHeight = tracksStackView.systemLayoutSizeFitting(
@@ -601,19 +601,19 @@ final class EditorTimelineView: UIView {
         tracksScrollView.alwaysBounceVertical = needsVerticalScroll
         tracksScrollView.showsVerticalScrollIndicator = needsVerticalScroll
     }
-    
+
     private func focusVideoLaneNearCenter(animated: Bool) {
         guard let videoLane = dynamicTrackViews.last(where: { $0.trackType == .video }) else { return }
         layoutIfNeeded()
-        
+
         let frameInContent = tracksContentView.convert(videoLane.frame, from: tracksStackView)
         let visibleHeight = tracksScrollView.bounds.height
         guard visibleHeight > 0 else { return }
-        
+
         let preferredY = frameInContent.midY - (visibleHeight / 2)
         let maxY = max(0, tracksScrollView.contentSize.height - visibleHeight)
         let clampedY = min(max(preferredY, 0), maxY)
-        
+
         tracksScrollView.setContentOffset(
             CGPoint(x: tracksScrollView.contentOffset.x, y: clampedY),
             animated: animated
@@ -624,15 +624,15 @@ final class EditorTimelineView: UIView {
 // MARK: - UIScrollViewDelegate
 
 extension EditorTimelineView: UIScrollViewDelegate {
-    
+
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         guard !isSettingTimeExternally else { return }
         guard scrollView === tracksScrollView else { return }
-        
+
         isSettingTimeExternally = true
         rulerScrollView.contentOffset.x = tracksScrollView.contentOffset.x + config.horizontalEdgePadding
         isSettingTimeExternally = false
-        
+
         // contentOffset.x == -contentInset.left  →  time 0 is under the playhead.
         let rawOffset = tracksScrollView.contentOffset.x + tracksScrollView.contentInset.left
         let time = max(timelineLayout.seconds(forXPosition: rawOffset), 0)
@@ -643,7 +643,7 @@ extension EditorTimelineView: UIScrollViewDelegate {
 // MARK: - UIGestureRecognizerDelegate
 
 extension EditorTimelineView: UIGestureRecognizerDelegate {
-    
+
     /// Only recognise the background-tap when the touch lands on empty space,
     /// not on a clip (TrackMediaView or any of its subviews).
     func gestureRecognizer(

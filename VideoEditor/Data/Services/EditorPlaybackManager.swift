@@ -3,12 +3,11 @@
 // VideoEditor
 //  Created by Coder ACJHP on 27.03.2026.
 
-
 import AVFoundation
 import UIKit
 
 final class EditorPlaybackManager {
-    
+
     private enum PostAttachBehavior {
         case pausedAtTimelineStart
         case playFromPreviewHead
@@ -118,7 +117,7 @@ final class EditorPlaybackManager {
 
             publishPlaybackTime()
             registerPlaybackEndObserver(for: result.playerItem)
-            
+
         } catch {
             #if DEBUG
             print("Composition build error:", error)
@@ -142,11 +141,11 @@ final class EditorPlaybackManager {
 
     private func installPeriodicTimeObserverIfNeeded(on player: AVPlayer) {
         guard periodicTimeObserver == nil else { return }
-        
+
         let interval = CMTime(seconds: 1.0 / 60.0, preferredTimescale: 600)
         periodicTimeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] _ in
             guard let self, let player = self.player else { return }
-            
+
             let advancing = player.timeControlStatus == .playing || player.rate > 0
             if advancing {
                 let time = player.currentTime()

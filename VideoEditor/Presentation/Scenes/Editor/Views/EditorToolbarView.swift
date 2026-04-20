@@ -166,7 +166,7 @@ final class EditorToolbarView: UIView {
             rightStack.centerYAnchor.constraint(equalTo: centerYAnchor),
 
             // Prevent overlap between time stack and undo/redo cluster.
-            timeStack.trailingAnchor.constraint(lessThanOrEqualTo: rightStack.leadingAnchor, constant: -8),
+            timeStack.trailingAnchor.constraint(lessThanOrEqualTo: rightStack.leadingAnchor, constant: -8)
         ])
     }
 

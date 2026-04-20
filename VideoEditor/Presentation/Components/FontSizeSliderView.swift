@@ -116,4 +116,3 @@ final class FontSizeSliderView: UIControl {
         sendActions(for: .valueChanged)
     }
 }
-

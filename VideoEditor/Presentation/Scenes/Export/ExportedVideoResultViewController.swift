@@ -58,7 +58,7 @@ final class ExportedVideoResultViewController: UIViewController {
             playerViewController.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             playerViewController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             playerViewController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            playerViewController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            playerViewController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         playerViewController.didMove(toParent: self)
     }

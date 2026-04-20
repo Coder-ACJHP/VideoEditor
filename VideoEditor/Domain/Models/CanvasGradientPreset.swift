@@ -26,7 +26,7 @@ nonisolated struct CanvasGradientPreset: Equatable, Hashable, Sendable {
         CanvasGradientPreset(id: "purple_haze", titleKey: "Purple haze", startHex: "#667EEA", endHex: "#764BA2"),
         CanvasGradientPreset(id: "midnight", titleKey: "Midnight", startHex: "#0F2027", endHex: "#2C5364"),
         CanvasGradientPreset(id: "coral", titleKey: "Coral", startHex: "#FFAFBD", endHex: "#FFC3A0"),
-        CanvasGradientPreset(id: "slate", titleKey: "Slate", startHex: "#606C88", endHex: "#3F4C6B"),
+        CanvasGradientPreset(id: "slate", titleKey: "Slate", startHex: "#606C88", endHex: "#3F4C6B")
     ]
 }
 

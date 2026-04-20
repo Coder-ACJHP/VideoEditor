@@ -205,13 +205,13 @@ final class TextBottomSheetViewController: UIViewController {
         "AmericanTypewriter",
         "Courier-Bold",
         "Palatino-Bold",
-        "Noteworthy-Bold",
+        "Noteworthy-Bold"
     ]
 
     private static let swatchHexes: [String] = [
         "#000000", "#1C1C1E", "#3A3A3C", "#48484A",
         "#FFFFFF", "#E5E5EA", "#FF3B30", "#FF9500",
-        "#FFCC00", "#34C759", "#007AFF", "#5856D6",
+        "#FFCC00", "#34C759", "#007AFF", "#5856D6"
     ]
 
     private static let defaultBackgroundHex = "#000000B3"
@@ -391,7 +391,7 @@ final class TextBottomSheetViewController: UIViewController {
             accessoryContent.leadingAnchor.constraint(equalTo: accessoryScroll.frameLayoutGuide.leadingAnchor, constant: 16),
             accessoryContent.trailingAnchor.constraint(equalTo: accessoryScroll.frameLayoutGuide.trailingAnchor, constant: -16),
             accessoryContent.bottomAnchor.constraint(equalTo: accessoryScroll.contentLayoutGuide.bottomAnchor),
-            accessoryContent.widthAnchor.constraint(equalTo: accessoryScroll.frameLayoutGuide.widthAnchor, constant: -32),
+            accessoryContent.widthAnchor.constraint(equalTo: accessoryScroll.frameLayoutGuide.widthAnchor, constant: -32)
         ])
     }
 
@@ -529,7 +529,7 @@ final class TextBottomSheetViewController: UIViewController {
             (.natural, String(localized: "Natural")),
             (.left, String(localized: "Left")),
             (.center, String(localized: "Center")),
-            (.right, String(localized: "Right")),
+            (.right, String(localized: "Right"))
         ]
         for (mode, title) in pairs {
             let b = UIButton(type: .system)

@@ -16,7 +16,7 @@ nonisolated struct TransformEffect: Codable, Equatable, Hashable, Sendable {
 
     /// Normalized width and height as fractions of the canvas size.
     var normalizedSize: CGSize
-    
+
     /// Extra scale multiplier (1.0 = default).
     var normalizedScale: CGFloat
 

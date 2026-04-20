@@ -3,7 +3,6 @@
 // VideoEditor
 //  Created by Coder ACJHP on 27.03.2026.
 
-
 import Foundation
 import UIKit
 
@@ -51,10 +50,10 @@ protocol RouterDelegate: AnyObject {
 
 @MainActor
 class AppRouter: RouterDelegate {
-    
+
     private let controller: UINavigationController
     private let thumbnailService: ThumbnailGenerating
-    
+
     init(
         controller: UINavigationController,
         thumbnailService: ThumbnailGenerating
@@ -62,29 +61,29 @@ class AppRouter: RouterDelegate {
         self.controller = controller
         self.thumbnailService = thumbnailService
     }
-    
+
     func navigate(to route: Route, animated: Bool) {
         let destinationVC = makeViewController(baseRoute: route)
         controller.pushViewController(destinationVC, animated: animated)
     }
-    
+
     func pop(animated: Bool) {
         controller.popViewController(animated: animated)
     }
-    
+
     func present(to route: Route, animated: Bool) {
         let destinationVC = makeViewController(baseRoute: route)
         // Wraps in a new NavigationController so the modal has its own navigation stack
         let nav = UINavigationController(rootViewController: destinationVC)
         controller.present(nav, animated: animated)
     }
-    
+
     func dismiss(animated: Bool) {
         controller.dismiss(animated: animated)
     }
-    
+
     func presentBottomSheet(to route: Route, config configuration: SheetConfiguration, animated: Bool) {
-        let bottomSheet = makeViewController(baseRoute: route)        
+        let bottomSheet = makeViewController(baseRoute: route)
         bottomSheet.modalPresentationStyle = .pageSheet
         bottomSheet.isModalInPresentation = !configuration.isDismissable
 

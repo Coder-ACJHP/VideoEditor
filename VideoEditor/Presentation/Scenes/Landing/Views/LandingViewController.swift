@@ -3,7 +3,6 @@
 // VideoEditor
 //  Created by Coder ACJHP on 27.03.2026.
 
-
 import UIKit
 import Combine
 import PhotosUI
@@ -76,19 +75,19 @@ final class LandingViewController: UIViewController {
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
- 
+
     private let loadingOverlay = LoadingOverlayView(blocksTouches: true)
 
     // MARK: - State
 
     private var projects: [EditingProject] = []
     private var cancellables: Set<AnyCancellable> = []
-    
+
     private let viewModel: LandingViewModel
     typealias DataSource = UICollectionViewDiffableDataSource<LandingSection, EditingProject>
     typealias Snapshot = NSDiffableDataSourceSnapshot<LandingSection, EditingProject>
     private var dataSource: DataSource!
-    
+
     /// Shared thumbnail service injected into every cell.
     /// One instance = one cache shared across all visible cells,
     /// so the same asset is never decoded twice per session.
@@ -149,7 +148,7 @@ final class LandingViewController: UIViewController {
             emptyStateLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             emptyStateLabel.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
             emptyStateLabel.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -24),
-            
+
             createProjectButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
             createProjectButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
             createProjectButton.heightAnchor.constraint(equalToConstant: 56.resp),
@@ -162,7 +161,7 @@ final class LandingViewController: UIViewController {
         ])
 
         updateEmptyState()
-        
+
         // Drop shadow to continue button
         createProjectButton.dropOuterShadow(
             withColor: createProjectButton.configuration?.baseBackgroundColor?.withAlphaComponent(0.2) ?? .systemBlue,
@@ -170,12 +169,12 @@ final class LandingViewController: UIViewController {
             opacity: 1.0,
             offset: CGSize(width: 0, height: 5)
         )
-        
+
         configureDataSource()
     }
 
     private func bindViewModel() {
-        
+
         // Loading state
         viewModel.$isLoading
             .receive(on: RunLoop.main)
@@ -183,7 +182,7 @@ final class LandingViewController: UIViewController {
                 self?.setLoading(state)
             }
             .store(in: &cancellables)
-        
+
         // Projects
         viewModel.$projects
             .receive(on: RunLoop.main)
@@ -197,7 +196,7 @@ final class LandingViewController: UIViewController {
                 self.updateEmptyState()
             }
             .store(in: &cancellables)
-        
+
         // Error handling
         viewModel.errorSubject
             .receive(on: RunLoop.main)
@@ -206,7 +205,7 @@ final class LandingViewController: UIViewController {
             }
             .store(in: &cancellables)
     }
-    
+
     private func setLoading(_ isLoading: Bool) {
         navigationItem.rightBarButtonItem?.isEnabled = !isLoading
         collectionView.isUserInteractionEnabled = !isLoading
@@ -221,9 +220,9 @@ final class LandingViewController: UIViewController {
         emptyStateLabel.isHidden = !isEmpty
         navigationItem.rightBarButtonItem?.isEnabled = !isEmpty && !(viewModel.isLoading)
     }
-    
+
     func configureDataSource() {
-        let registration = UICollectionView.CellRegistration<ProjectCell, EditingProject> { [weak self] cell, indexPath, item in
+        let registration = UICollectionView.CellRegistration<ProjectCell, EditingProject> { [weak self] cell, _, item in
             guard let self else { return }
             cell.configure(
                 with: item,
@@ -241,8 +240,6 @@ final class LandingViewController: UIViewController {
         snapshot.appendSections([.main])
         dataSource.apply(snapshot, animatingDifferences: false)
     }
-
-
 
     // MARK: - Actions
 
@@ -463,4 +460,3 @@ extension LandingViewController: PHPickerViewControllerDelegate {
         }
     }
 }
-

@@ -148,7 +148,7 @@ final class EditorViewController: UIViewController {
             navigationBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             navigationBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             navigationBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            navigationBar.heightAnchor.constraint(equalToConstant: 52),
+            navigationBar.heightAnchor.constraint(equalToConstant: 52)
         ])
         navigationBar.configure(projectName: viewModel.projectDisplayName, aspectRatio: "9:16")
     }
@@ -166,7 +166,7 @@ final class EditorViewController: UIViewController {
             renderView.topAnchor.constraint(equalTo: navigationBar.bottomAnchor),
             renderView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             renderView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            heightConstraint,
+            heightConstraint
         ])
     }
 
@@ -177,7 +177,7 @@ final class EditorViewController: UIViewController {
             toolbarView.topAnchor.constraint(equalTo: renderView.bottomAnchor),
             toolbarView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             toolbarView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            toolbarView.heightAnchor.constraint(equalToConstant: 52.resp),
+            toolbarView.heightAnchor.constraint(equalToConstant: 52.resp)
         ])
     }
 
@@ -190,7 +190,7 @@ final class EditorViewController: UIViewController {
             featuresView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             featuresView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             featuresView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            heightConstraint,
+            heightConstraint
         ])
     }
 
@@ -201,7 +201,7 @@ final class EditorViewController: UIViewController {
             timelineView.topAnchor.constraint(equalTo: toolbarView.bottomAnchor),
             timelineView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             timelineView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            timelineView.bottomAnchor.constraint(equalTo: featuresView.topAnchor),
+            timelineView.bottomAnchor.constraint(equalTo: featuresView.topAnchor)
         ])
     }
 

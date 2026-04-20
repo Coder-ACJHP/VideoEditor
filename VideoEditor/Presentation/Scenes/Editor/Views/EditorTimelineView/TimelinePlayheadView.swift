@@ -46,15 +46,15 @@ final class TimelinePlayheadView: UIView {
         defer { CATransaction.commit() }
 
         let cx      = bounds.midX
-        let capW:   CGFloat = 12   // total cap base width
-        let capH:   CGFloat = 10   // cap height
-        let stemW:  CGFloat = 2    // stem thickness
+        let capW: CGFloat = 12   // total cap base width
+        let capH: CGFloat = 10   // cap height
+        let stemW: CGFloat = 2    // stem thickness
 
         // Downward-pointing isoceles triangle.
         let path = UIBezierPath()
-        path.move(to:    CGPoint(x: cx - capW / 2, y: 0))  // top-left
+        path.move(to: CGPoint(x: cx - capW / 2, y: 0))  // top-left
         path.addLine(to: CGPoint(x: cx + capW / 2, y: 0))  // top-right
-        path.addLine(to: CGPoint(x: cx,            y: capH)) // tip
+        path.addLine(to: CGPoint(x: cx, y: capH)) // tip
         path.close()
         capLayer.path      = path.cgPath
         capLayer.fillColor = UIColor.white.cgColor

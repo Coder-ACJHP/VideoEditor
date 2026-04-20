@@ -29,7 +29,6 @@
  Note that TempiFFT expects a mono signal (i.e. numChannels == 1) which is ideal for performance.
  */
 
-
 import Foundation
 import Accelerate
 
@@ -39,7 +38,7 @@ import Accelerate
     case hamming
 }
 
-@objc class TempiFFT : NSObject {
+@objc class TempiFFT: NSObject {
 
     /// The length of the sample buffer we'll be analyzing.
     private(set) var size: Int
@@ -79,17 +78,17 @@ import Accelerate
     /// Supplying a window type (hanning or hamming) smooths the edges of the incoming waveform and reduces output errors from the FFT function (aka "spectral leakage" - ewww).
     var windowType = TempiFFTWindowType.none
 
-    private var halfSize:Int
-    private var log2Size:Int
-    private var window:[Float] = []
-    private var fftSetup:FFTSetup
+    private var halfSize: Int
+    private var log2Size: Int
+    private var window: [Float] = []
+    private var fftSetup: FFTSetup
     private var hasPerformedFFT: Bool = false
     private var complexBuffer: DSPSplitComplex!
 
     /// Instantiate the FFT.
     /// - Parameter withSize: The length of the sample buffer we'll be analyzing. Must be a power of 2. The resulting ```magnitudes``` are of length ```inSize/2```.
     /// - Parameter sampleRate: Sampling rate of the provided audio data.
-    init(withSize inSize:Int, sampleRate inSampleRate: Float) {
+    init(withSize inSize: Int, sampleRate inSampleRate: Float) {
 
         let sizeFloat: Float = Float(inSize)
 
@@ -126,7 +125,7 @@ import Accelerate
 
     /// Perform a forward FFT on the provided single-channel audio data. When complete, the instance can be queried for information about the analysis or the magnitudes can be accessed directly.
     /// - Parameter inMonoBuffer: Audio data in mono format
-    func fftForward(_ inMonoBuffer:[Float]) {
+    func fftForward(_ inMonoBuffer: [Float]) {
 
         var analysisBuffer = inMonoBuffer
 
@@ -149,7 +148,6 @@ import Accelerate
             // Apply the window
             vDSP_vmul(inMonoBuffer, 1, self.window, 1, &analysisBuffer, 1, UInt(inMonoBuffer.count))
         }
-
 
         // vDSP_ctoz converts an interleaved vector into a complex split vector. i.e. moves the even indexed samples into frame.buffer.realp and the odd indexed samples into frame.buffer.imagp.
         //        var imaginary = [Float](repeating: 0.0, count: analysisBuffer.count)
@@ -229,7 +227,7 @@ import Accelerate
     }
 
     // On arrays of 1024 elements, this is ~35x faster than an iterational algorithm. Thanks Accelerate.framework!
-    @inline(__always) private func fastAverage(_ array:[Float], _ startIdx: Int, _ stopIdx: Int) -> Float {
+    @inline(__always) private func fastAverage(_ array: [Float], _ startIdx: Int, _ stopIdx: Int) -> Float {
         var mean: Float = 0
         array.withUnsafeBufferPointer { arrayBP in
             vDSP_meanv(arrayBP.baseAddress! + startIdx, 1, &mean, UInt(stopIdx - startIdx))

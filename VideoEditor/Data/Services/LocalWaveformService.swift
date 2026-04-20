@@ -3,12 +3,11 @@
 // VideoEditor
 //  Created by Coder ACJHP on 27.03.2026.
 
-
 import Foundation
 import UIKit
 
 final class LocalWaveformService: WaveformGenerating {
-    
+
     func waveform(for asset: AssetIdentifier, size: CGSize) async -> UIImage? {
         let drawer = WaveformImageDrawer()
         if case .audio(let audioURL) = asset {
@@ -20,7 +19,7 @@ final class LocalWaveformService: WaveformGenerating {
         }
         return nil
     }
-    
+
     func displayName(for clip: MediaClip) -> String {
         if case .audio(let url) = clip.asset { return url.deletingPathExtension().lastPathComponent }
         return String(localized: "Audio")

@@ -12,17 +12,17 @@
 import Foundation
 
 nonisolated struct MediaTrack: Identifiable, Codable, Sendable {
-    
+
     let id: UUID
     var trackType: TrackType
     var clips: [MediaClip]
-    
+
     /// Audio-only: when true, the engine omits this track from the mix.
     var isMuted: Bool
-    
+
     /// Volume multiplier (0.0 = silent, 1.0 = full level). Meaningful only for `.audio` tracks.
     var volume: Float
-    
+
     enum TrackType: String, Codable {
         /// Primary visual track (video + image clips share this lane).
         case video
@@ -31,9 +31,9 @@ nonisolated struct MediaTrack: Identifiable, Codable, Sendable {
         /// Top layer: PiP, text, graphics, or watermark.
         case overlay
     }
-    
+
     // MARK: - Init
-    
+
     init(
         id: UUID = UUID(),
         trackType: TrackType,

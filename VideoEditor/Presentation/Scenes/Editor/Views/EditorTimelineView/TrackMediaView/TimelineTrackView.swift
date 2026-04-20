@@ -247,9 +247,9 @@ final class TimelineTrackView: UIView {
         let width = layout.width(forDurationSeconds: clip.timelineRange.durationSeconds)
         let safeW  = max(width, 48)
         let frame = CGRect(
-            x:      xPos,
-            y:      0,
-            width:  safeW,
+            x: xPos,
+            y: 0,
+            width: safeW,
             height: trackContentHeight
         )
 

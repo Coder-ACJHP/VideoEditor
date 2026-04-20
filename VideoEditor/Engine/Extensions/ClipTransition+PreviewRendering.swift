@@ -11,7 +11,7 @@ import CoreImage
 import Foundation
 
 extension ClipTransition {
-    
+
     /// One output frame for the overlap window between two clips. `tween` runs 0…1 across the transition.
     func renderImage(
         foregroundImage: CIImage,
@@ -21,14 +21,14 @@ extension ClipTransition {
     ) -> CIImage {
         let rect = CGRect(origin: .zero, size: renderSize)
         let t = CGFloat(max(0, min(1, tween)))
-        
+
         switch type {
             case .crossDissolve:
                 return foregroundImage
                     .applyingPreviewVideoAlpha(t)
                     .composited(over: backgroundImage)
                     .cropped(to: rect)
-                
+
             case .fadeToBlack:
                 let black = CIImage(color: .black).cropped(to: rect)
                 if t <= 0.5 {
@@ -44,7 +44,7 @@ extension ClipTransition {
                         .composited(over: black)
                         .cropped(to: rect)
                 }
-                
+
             case .push:
                 let w = renderSize.width
                 let bgShift = -t * w
@@ -52,11 +52,11 @@ extension ClipTransition {
                 let bg = backgroundImage.transformed(by: CGAffineTransform(translationX: bgShift, y: 0))
                 let fg = foregroundImage.transformed(by: CGAffineTransform(translationX: fgShift, y: 0))
                 return fg.composited(over: bg).cropped(to: rect)
-                
+
             case .swipe:
                 let bg = backgroundImage.cropped(to: rect)
                 let fg = foregroundImage.cropped(to: rect)
-                
+
                 guard let filter = CIFilter.swipeTransitionFilter(
                     inputImage: bg,
                     inputTargetImage: fg,
@@ -69,13 +69,13 @@ extension ClipTransition {
                     return fg.applyingPreviewVideoAlpha(t).composited(over: bg).cropped(to: rect)
                 }
                 return out
-                
+
             case .slide:
                 let w = renderSize.width
                 let fgShift = (1 - t) * w
                 let fg = foregroundImage.transformed(by: CGAffineTransform(translationX: fgShift, y: 0))
                 return fg.composited(over: backgroundImage).cropped(to: rect)
-                
+
             case .ripple:
                 let bg = backgroundImage.cropped(to: rect)
                 let fg = foregroundImage.cropped(to: rect)
@@ -99,7 +99,7 @@ extension ClipTransition {
                     return fg.applyingPreviewVideoAlpha(t).composited(over: bg).cropped(to: rect)
                 }
                 return out
-                
+
             case .barsSwipe:
                 let bg = backgroundImage.cropped(to: rect)
                 let fg = foregroundImage.cropped(to: rect)
@@ -117,7 +117,7 @@ extension ClipTransition {
                     return fg.applyingPreviewVideoAlpha(t).composited(over: bg).cropped(to: rect)
                 }
                 return out
-                
+
             case .copyMachine:
                 let bg = backgroundImage.cropped(to: rect)
                 let fg = foregroundImage.cropped(to: rect)
@@ -138,7 +138,7 @@ extension ClipTransition {
                     return fg.applyingPreviewVideoAlpha(t).composited(over: bg).cropped(to: rect)
                 }
                 return out
-                
+
             case .flash:
                 let bg = backgroundImage.cropped(to: rect)
                 let fg = foregroundImage.cropped(to: rect)
@@ -157,7 +157,7 @@ extension ClipTransition {
                     return fg.applyingPreviewVideoAlpha(t).composited(over: bg).cropped(to: rect)
                 }
                 return out
-                
+
             case .mod:
                 let bg = backgroundImage.cropped(to: rect)
                 let fg = foregroundImage.cropped(to: rect)
@@ -177,7 +177,7 @@ extension ClipTransition {
                     return fg.applyingPreviewVideoAlpha(t).composited(over: bg).cropped(to: rect)
                 }
                 return out
-                
+
             case .pageCurl:
                 let bg = backgroundImage.cropped(to: rect)
                 let fg = foregroundImage.cropped(to: rect)
@@ -185,7 +185,7 @@ extension ClipTransition {
                 let backside = bg
                     .applyingFilter("CIColorControls", parameters: [
                         kCIInputSaturationKey: 0.7,
-                        kCIInputBrightnessKey: -0.1,
+                        kCIInputBrightnessKey: -0.1
                     ])
                     .cropped(to: rect)
                 let minDim = min(renderSize.width, renderSize.height)
@@ -213,7 +213,7 @@ extension ClipTransition {
                     return fg.applyingPreviewVideoAlpha(t).composited(over: bg).cropped(to: rect)
                 }
                 return out
-                
+
             case .accordionFold:
                 let bg = backgroundImage.cropped(to: rect)
                 let fg = foregroundImage.cropped(to: rect)

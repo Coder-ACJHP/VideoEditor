@@ -43,7 +43,7 @@ final class AudioBottomSheetViewController: UIViewController {
             string: String(localized: "Search audio"),
             attributes: [
                 .foregroundColor: AudioSheetPalette.tertiaryText,
-                .font: UIFont.preferredFont(forTextStyle: .body),
+                .font: UIFont.preferredFont(forTextStyle: .body)
             ]
         )
         tf.accessibilityIdentifier = "audioSheet.search"
@@ -246,7 +246,7 @@ final class AudioBottomSheetViewController: UIViewController {
             importButton.leadingAnchor.constraint(equalTo: searchField.trailingAnchor, constant: 10),
             importButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             importButton.centerYAnchor.constraint(equalTo: searchField.centerYAnchor),
-            importButton.heightAnchor.constraint(equalToConstant: 44),
+            importButton.heightAnchor.constraint(equalToConstant: 44)
         ])
     }
 
@@ -278,7 +278,7 @@ final class AudioBottomSheetViewController: UIViewController {
             tabStack.leadingAnchor.constraint(equalTo: tabScrollView.contentLayoutGuide.leadingAnchor),
             tabStack.trailingAnchor.constraint(equalTo: tabScrollView.contentLayoutGuide.trailingAnchor),
             tabStack.bottomAnchor.constraint(equalTo: tabScrollView.contentLayoutGuide.bottomAnchor, constant: -6),
-            tabStack.heightAnchor.constraint(equalTo: tabScrollView.frameLayoutGuide.heightAnchor, constant: -6),
+            tabStack.heightAnchor.constraint(equalTo: tabScrollView.frameLayoutGuide.heightAnchor, constant: -6)
         ])
     }
 
@@ -288,7 +288,7 @@ final class AudioBottomSheetViewController: UIViewController {
             tableView.topAnchor.constraint(equalTo: tabScrollView.bottomAnchor, constant: 8),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
 
@@ -334,7 +334,7 @@ final class AudioBottomSheetViewController: UIViewController {
             confirmButton.trailingAnchor.constraint(equalTo: floatingBar.trailingAnchor, constant: -8),
             confirmButton.centerYAnchor.constraint(equalTo: floatingBar.centerYAnchor),
             confirmButton.widthAnchor.constraint(equalToConstant: 44),
-            confirmButton.heightAnchor.constraint(equalToConstant: 44),
+            confirmButton.heightAnchor.constraint(equalToConstant: 44)
         ])
     }
 
@@ -348,7 +348,7 @@ final class AudioBottomSheetViewController: UIViewController {
             AudioBrowseItem(id: "2", title: "Green Light", artist: "Lorde", durationLabel: "3:59", useCountLabel: "12K reels", thumbTint: UIColor.systemTeal.withAlphaComponent(0.5), url: mockItemUrl),
             AudioBrowseItem(id: "3", title: "Royals", artist: "Lorde", durationLabel: "3:10", useCountLabel: "890K reels", thumbTint: UIColor.systemOrange.withAlphaComponent(0.45), url: mockItemUrl),
             AudioBrowseItem(id: "4", title: "Team", artist: "Lorde", durationLabel: "3:13", useCountLabel: "45K reels", thumbTint: UIColor.systemPink.withAlphaComponent(0.45), url: mockItemUrl),
-            AudioBrowseItem(id: "5", title: "Solar Power", artist: "Lorde", durationLabel: "3:12", useCountLabel: "8.1K reels", thumbTint: UIColor.systemYellow.withAlphaComponent(0.35), url: mockItemUrl),
+            AudioBrowseItem(id: "5", title: "Solar Power", artist: "Lorde", durationLabel: "3:12", useCountLabel: "8.1K reels", thumbTint: UIColor.systemYellow.withAlphaComponent(0.35), url: mockItemUrl)
         ]
     }
 
@@ -378,7 +378,7 @@ final class AudioBottomSheetViewController: UIViewController {
             tabIndicator.leadingAnchor.constraint(equalTo: btn.leadingAnchor),
             tabIndicator.trailingAnchor.constraint(equalTo: btn.trailingAnchor),
             tabIndicator.heightAnchor.constraint(equalToConstant: 2),
-            tabIndicator.bottomAnchor.constraint(equalTo: tabStack.bottomAnchor, constant: 4),
+            tabIndicator.bottomAnchor.constraint(equalTo: tabStack.bottomAnchor, constant: 4)
         ]
         let apply = {
             NSLayoutConstraint.activate(self.tabIndicatorConstraints)

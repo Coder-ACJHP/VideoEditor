@@ -85,7 +85,7 @@ final class TimelineRulerView: UIView {
 
             ctx.setStrokeColor(tickColor)
             ctx.setLineWidth(lineWidth)
-            ctx.move(to:    CGPoint(x: x, y: bottomY - tickH))
+            ctx.move(to: CGPoint(x: x, y: bottomY - tickH))
             ctx.addLine(to: CGPoint(x: x, y: bottomY))
             ctx.strokePath()
         }

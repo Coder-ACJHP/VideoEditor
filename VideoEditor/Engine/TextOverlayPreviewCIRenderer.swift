@@ -26,16 +26,16 @@ struct PreviewTextOverlaySpec: Sendable {
 // MARK: - Renderer + cache
 
 final class TextOverlayPreviewCIRenderer: @unchecked Sendable {
-    
+
     static let shared = TextOverlayPreviewCIRenderer()
-    
+
     private let cache = NSCache<NSString, CIImage>()
     private static let referenceCompositionHeight: CGFloat = 1080
-    
+
     private init() {
         cache.countLimit = 48
     }
-    
+
     func ciImageFullFrame(for spec: PreviewTextOverlaySpec, renderSize: CGSize) -> CIImage? {
         guard renderSize.width > 1, renderSize.height > 1 else { return nil }
         let key = Self.cacheKey(for: spec, renderSize: renderSize) as NSString
@@ -46,25 +46,25 @@ final class TextOverlayPreviewCIRenderer: @unchecked Sendable {
         cache.setObject(image, forKey: key)
         return image
     }
-    
+
     func invalidateAllCaches() {
         cache.removeAllObjects()
     }
-    
+
     // MARK: - Raster (background thread safe; no UIKit)
-    
+
     private static func rasterize(spec: PreviewTextOverlaySpec, renderSize: CGSize) -> CIImage? {
         let w = Int(max(1, renderSize.width.rounded(.down)))
         let h = Int(max(1, renderSize.height.rounded(.down)))
-        
+
         // 1. EN ÖNEMLİ ADIM: UI (Top-Left) koordinatını CoreGraphics (Bottom-Left) koordinatına çeviriyoruz.
         var correctedTransform = spec.transform
         correctedTransform.normalizedCenter.y = 1.0 - correctedTransform.normalizedCenter.y
-        
+
         // Kutu pozisyonunu düzeltilmiş transform ile hesaplıyoruz
         let box = layoutBox(transform: correctedTransform, renderSize: CGSize(width: w, height: h))
         guard box.width >= 1, box.height >= 1 else { return nil }
-        
+
         let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
         guard let ctx = CGContext(
             data: nil,
@@ -75,51 +75,51 @@ final class TextOverlayPreviewCIRenderer: @unchecked Sendable {
             space: colorSpace,
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return nil }
-        
+
         // DİKKAT: Eski kodundaki ctx.translateBy(x: 0, y: CGFloat(h)) ve ctx.scaleBy(x: 1, y: -1)
         // satırlarını SİLDİK. CoreText'in yazıyı düz (upright) çizebilmesi için context'in
         // orijinal Bottom-Left yapısında kalması gerekiyor.
-        
+
         ctx.saveGState()
-        
+
         // Rotasyon Merkezini ayarlıyoruz
         ctx.translateBy(x: box.midX, y: box.midY)
         // UIKit'te rotasyon saat yönündedir, Bottom-Left sistemde tam tersidir.
         // Bu yüzden eksi (-) işareti koyuyoruz.
         ctx.rotate(by: -spec.transform.rotationAngle)
         ctx.translateBy(x: -box.midX, y: -box.midY)
-        
+
         // Arkaplan Rengi (varsa)
         if let bgHex = spec.descriptor.backgroundColorHex,
            let bg = rgbColor(fromHex: bgHex) {
             ctx.setFillColor(bg)
             ctx.fill(box)
         }
-        
+
         let fontSize = scaledPointSize(from: spec.descriptor, compositionHeight: CGFloat(h))
         let ctFont = CTFontCreateWithName(spec.descriptor.fontName as CFString, fontSize, nil)
         let textColor = rgbColor(fromHex: spec.descriptor.textColorHex) ?? CGColor(gray: 1, alpha: 1)
         let paragraph = Self.makeParagraphStyle(alignment: spec.descriptor.alignmentMode.ctAlignment)
-        
+
         let attrs: [NSAttributedString.Key: Any] = [
             kCTFontAttributeName as NSAttributedString.Key: ctFont,
             kCTForegroundColorAttributeName as NSAttributedString.Key: textColor,
-            kCTParagraphStyleAttributeName as NSAttributedString.Key: paragraph,
+            kCTParagraphStyleAttributeName as NSAttributedString.Key: paragraph
         ]
-        
+
         let attrString = NSAttributedString(string: spec.descriptor.text, attributes: attrs)
         let framesetter = CTFramesetterCreateWithAttributedString(attrString as CFAttributedString)
         let path = CGPath(rect: box.insetBy(dx: 6, dy: 4), transform: nil)
         let frame = CTFramesetterCreateFrame(framesetter, CFRange(location: 0, length: attrString.length), path, nil)
-        
+
         CTFrameDraw(frame, ctx)
-        
+
         ctx.restoreGState()
-        
+
         guard let cgImage = ctx.makeImage() else { return nil }
         return CIImage(cgImage: cgImage)
     }
-    
+
     private static func layoutBox(transform: TransformEffect, renderSize: CGSize) -> CGRect {
         let w = max(transform.normalizedSize.width * renderSize.width * transform.normalizedScale, 44)
         let h = max(transform.normalizedSize.height * renderSize.height * transform.normalizedScale, 1)
@@ -127,7 +127,7 @@ final class TextOverlayPreviewCIRenderer: @unchecked Sendable {
         let cy = transform.normalizedCenter.y * renderSize.height
         return CGRect(x: cx - w / 2, y: cy - h / 2, width: w, height: h)
     }
-    
+
     private static func makeParagraphStyle(alignment: CTTextAlignment) -> CTParagraphStyle {
         var align = alignment
         return withUnsafePointer(to: &align) { ptr in
@@ -139,12 +139,12 @@ final class TextOverlayPreviewCIRenderer: @unchecked Sendable {
             return CTParagraphStyleCreate([setting], 1)
         }
     }
-    
+
     private static func scaledPointSize(from descriptor: TextOverlayDescriptor, compositionHeight: CGFloat) -> CGFloat {
         let scale = compositionHeight / referenceCompositionHeight
         return max(1, descriptor.fontSize * scale)
     }
-    
+
     private static func cacheKey(for spec: PreviewTextOverlaySpec, renderSize: CGSize) -> String {
         let d = spec.descriptor
         let t = spec.transform
@@ -157,7 +157,7 @@ final class TextOverlayPreviewCIRenderer: @unchecked Sendable {
         \(t.normalizedScale)|\(t.rotationAngle)|\(spec.opacity)|\(w)x\(h)
         """
     }
-    
+
     private static func rgbColor(fromHex hexString: String) -> CGColor? {
         let hex = hexString.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int = UInt64()
@@ -198,7 +198,7 @@ private extension TextOverlayTextAlignment {
 // MARK: - Compositor helper
 
 enum PreviewTextOverlayCompositor {
-    
+
     static func composite(
         specs: [PreviewTextOverlaySpec],
         onto base: CIImage?,

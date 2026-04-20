@@ -3,7 +3,6 @@
 // VideoEditor
 //  Created by Coder ACJHP on 27.03.2026.
 
-
 import UIKit
 
 // MARK: - TimelineSkeletonAnimator
@@ -39,7 +38,7 @@ final class TimelineSkeletonAnimator {
             container.topAnchor.constraint(equalTo: stackView.topAnchor),
             container.leadingAnchor.constraint(equalTo: stackView.leadingAnchor),
             container.trailingAnchor.constraint(equalTo: stackView.trailingAnchor),
-            container.bottomAnchor.constraint(equalTo: stackView.bottomAnchor),
+            container.bottomAnchor.constraint(equalTo: stackView.bottomAnchor)
         ])
 
         for trackView in lanes {
@@ -51,7 +50,7 @@ final class TimelineSkeletonAnimator {
                 shimmerView.leadingAnchor.constraint(equalTo: stackView.leadingAnchor),
                 shimmerView.trailingAnchor.constraint(equalTo: stackView.trailingAnchor),
                 shimmerView.topAnchor.constraint(equalTo: trackView.topAnchor),
-                shimmerView.heightAnchor.constraint(equalTo: trackView.heightAnchor),
+                shimmerView.heightAnchor.constraint(equalTo: trackView.heightAnchor)
             ])
         }
 

@@ -261,7 +261,7 @@ private final class TransitionPickerCell: UICollectionViewCell {
             nameLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
 
             removeButton.topAnchor.constraint(equalTo: previewImageView.topAnchor, constant: 8),
-            removeButton.trailingAnchor.constraint(equalTo: previewImageView.trailingAnchor, constant: -8),
+            removeButton.trailingAnchor.constraint(equalTo: previewImageView.trailingAnchor, constant: -8)
         ])
     }
 
@@ -303,7 +303,7 @@ private final class TransitionPickerCell: UICollectionViewCell {
 
         updateSelectionState(isSelected)
     }
-    
+
     private func updateSelectionState(_ isSelected: Bool) {
         previewImageView.layer.borderColor = isSelected ? UIColor.systemBlue.cgColor : nil
         previewImageView.layer.borderWidth = isSelected ? 2.0 : 0.0

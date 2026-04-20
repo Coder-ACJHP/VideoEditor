@@ -17,7 +17,7 @@ final class TextTrackMediaView: TrackMediaView {
             layoutTitle(animated: true)
         }
     }
-    
+
     private lazy var titleLabel: UILabel = {
         let label = UILabel()
         label.font = config.trackTitleFont

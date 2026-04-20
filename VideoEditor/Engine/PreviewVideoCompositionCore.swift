@@ -213,7 +213,7 @@ final class PreviewCoreImageVideoCompositor: NSObject, AVVideoCompositing {
                 request.finishCancelledRequest()
                 return
             }
-            
+
             autoreleasepool {
                 if let pixelBuffer = self.newRenderedPixelBuffer(for: request) {
                     request.finish(withComposedVideoFrame: pixelBuffer)
@@ -230,12 +230,12 @@ final class PreviewCoreImageVideoCompositor: NSObject, AVVideoCompositing {
             self?.shouldCancelAllRequests = false
         }
     }
-    
+
     /// Main rendering logic that combines layers into a single pixel buffer.
     private func newRenderedPixelBuffer(for request: AVAsynchronousVideoCompositionRequest) -> CVPixelBuffer? {
         // 1. Obtain a clean pixel buffer from the render context pool
         guard let output = request.renderContext.newPixelBuffer() else { return nil }
-        
+
         // Ensure the instruction is our custom type to access background color and layer logic
         guard let instruction = request.videoCompositionInstruction as? PreviewMultiTrackVideoInstruction else {
             return nil
@@ -263,7 +263,7 @@ final class PreviewCoreImageVideoCompositor: NSObject, AVVideoCompositing {
                               to: output,
                               bounds: renderRect,
                               colorSpace: Self.sRGBSpace)
-        
+
         return output
     }
 }

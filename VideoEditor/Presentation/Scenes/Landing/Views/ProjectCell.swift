@@ -149,7 +149,7 @@ final class ProjectCell: UICollectionViewCell {
             metaLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
             metaLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor)
         ])
-        
+
         // Drop shadow to continue button
         projectMenuButton.dropOuterShadow(
             withColor: .black.withAlphaComponent(0.2),

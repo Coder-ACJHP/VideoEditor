@@ -3,35 +3,34 @@
 // VideoEditor
 //  Created by Coder ACJHP on 27.03.2026.
 
-
 import Foundation
 import Combine
 import PhotosUI
 
 @MainActor
 final class LandingViewModel {
-    
+
     @Published var title: String = "Projects"
     @Published var projects: [EditingProject] = []
     @Published var isLoading: Bool = false
     @Published private(set) var selectedSortOption: SortOption = .creationDate
     let errorSubject = PassthroughSubject<String, Never>()
-    
+
     private let router: RouterDelegate
     private let importService: MediaImportService
     private var allProjects: [EditingProject] = []
-    
+
     init(router: RouterDelegate, importService: MediaImportService) {
         self.router = router
         self.importService = importService
         applySortAndPublish()
     }
-    
+
     func didSelectProject(at index: Int) {
         guard projects.indices.contains(index) else { return }
         router.navigateToEditor(with: projects[index], animated: true)
     }
-    
+
     /// Updates display name and `lastModifiedDate`. Ignores empty / whitespace-only names.
     func renameProject(id: UUID, to newName: String) {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -40,7 +39,7 @@ final class LandingViewModel {
         allProjects[idx].lastModifiedDate = Date()
         applySortAndPublish()
     }
-    
+
     func loadStoredProjects() {
         // Persistence integration is pending; keep startup list empty instead of mock data.
         let policy = EditorTimelinePolicy.default
@@ -224,32 +223,32 @@ final class LandingViewModel {
                 ],
                 exportSettings: ExportSettings.default
             )
-            
+
         ]
         applySortAndPublish()
     }
-    
+
     func deleteProject(id: UUID) {
         allProjects.removeAll { $0.id == id }
         applySortAndPublish()
     }
-    
+
     func setSortOption(_ option: SortOption) {
         guard selectedSortOption != option else { return }
         selectedSortOption = option
         applySortAndPublish()
     }
-    
+
     func createProject(from results: [PHPickerResult]) async throws {
         guard !results.isEmpty else { return }
-        
+
         isLoading = true
         defer { isLoading = false }
-        
+
         do {
             let imported = try await importService.importPickedItems(results)
             let project = await ProjectFactory.makeNewProject(importedMedia: imported)
-            
+
             // TODO: Persist to disk / Core Data.
             allProjects.insert(project, at: 0)
             applySortAndPublish()
@@ -259,14 +258,14 @@ final class LandingViewModel {
             throw error
         }
     }
-    
+
     // MARK: - Sorting
-    
+
     enum SortOption: Equatable, CaseIterable {
         case creationDate
         case size
         case alphabetically
-        
+
         var title: String {
             switch self {
                 case .creationDate: return "Creation Date"
@@ -275,14 +274,14 @@ final class LandingViewModel {
             }
         }
     }
-    
+
     private func applySortAndPublish() {
         projects = allProjects.sorted(by: selectedSortOption.sortComparator)
     }
 }
 
 private extension LandingViewModel.SortOption {
-    
+
     var sortComparator: (EditingProject, EditingProject) -> Bool {
         switch self {
             case .creationDate:

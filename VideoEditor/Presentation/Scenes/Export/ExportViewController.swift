@@ -73,7 +73,7 @@ final class ExportViewController: UIViewController {
                 progressView,
                 percentLabel,
                 exportButton,
-                activityIndicator,
+                activityIndicator
             ]
         )
         stack.axis = .vertical
@@ -88,7 +88,7 @@ final class ExportViewController: UIViewController {
             stack.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             stack.leadingAnchor.constraint(greaterThanOrEqualTo: view.layoutMarginsGuide.leadingAnchor),
             stack.trailingAnchor.constraint(lessThanOrEqualTo: view.layoutMarginsGuide.trailingAnchor),
-            stack.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            stack.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
     }
 

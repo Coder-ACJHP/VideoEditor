@@ -3,7 +3,6 @@
 // VideoEditor
 //  Created by Coder ACJHP on 27.03.2026.
 
-
 import UIKit
 
 protocol TrackMediaViewDelegate: AnyObject {
@@ -20,11 +19,11 @@ protocol TrackMediaViewDelegate: AnyObject {
 }
 
 class TrackMediaView: UIView {
-    
+
     public var config: TimelineConfiguration { .default }
-    
+
     weak var delegate: TrackMediaViewDelegate?
-    
+
     let clip: MediaClip
     let layout: TimelineLayoutProvider
     private(set) var isSelected = false
@@ -38,13 +37,13 @@ class TrackMediaView: UIView {
     }
     var durationString: String = "00:00"
     var contentView: UIView { mediaContainerView }
-    
+
     private var timelineRange: ClipTimeRange
     private(set) var sourceRange: ClipTimeRange
     /// The total source asset duration — upper bound for video/audio trim.
     private let maxSourceEnd: Double
     private var maxTrackDuration: Double = 0
-    
+
     // Gestures
     private lazy var panGesture = UIPanGestureRecognizer(
         target: self, action: #selector(handleMovePan(_:))
@@ -58,17 +57,17 @@ class TrackMediaView: UIView {
 
     /// System drag-and-drop for reordering on the master track (video / image clips only).
     private var masterTrackReorderDragInteraction: UIDragInteraction?
-    
+
     private var initialFrame: CGRect = .zero
     private var initialRange: ClipTimeRange = .zero
     private var initialSourceRange: ClipTimeRange = .zero
-    
+
     private let mediaContainerView = UIView()
     private let selectionBorderView = UIView()
     private let durationLabel = UILabel()
     private let leftHandle = UILabel()
     private let rightHandle = UILabel()
-    
+
     init(frame: CGRect, clip: MediaClip, layout: TimelineLayoutProvider) {
         self.clip = clip
         self.layout = layout
@@ -79,11 +78,11 @@ class TrackMediaView: UIView {
         setupView()
         updateDurationLabel()
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     override func layoutSubviews() {
         super.layoutSubviews()
         selectionBorderView.frame = bounds
@@ -108,7 +107,7 @@ class TrackMediaView: UIView {
         mediaContainerView.frame = bounds
         mediaContainerView.layer.cornerRadius = config.clipCornerRadius - 2
     }
-    
+
     func setSelected(_ selected: Bool) {
         isSelected = selected
         selectionBorderView.isHidden = !selected
@@ -118,62 +117,62 @@ class TrackMediaView: UIView {
         if durationLabelCanControlled {
             durationLabel.isHidden = !selected
         }
-        
+
         leftHandlePan.isEnabled = selected
         rightHandlePan.isEnabled = selected
         panGesture.isEnabled = selected && !isMasterTrack
     }
-    
+
     func applyTimelineRange(_ range: ClipTimeRange) {
         timelineRange = range
         updateDurationLabel()
     }
-    
+
     func applySourceRange(_ range: ClipTimeRange) {
         sourceRange = range
     }
-    
+
     func updateTrackLimits(maxDuration: Double) {
         maxTrackDuration = max(maxDuration, config.minClipDuration)
     }
-    
+
     func setupMediaContent() {}
-    
+
     // MARK: - Visual media strip (video / image filmstrip)
-    
+
     /// Width of one tiled thumbnail along the clip. Zoom (`layout.pointsPerSecond`) divided by
     /// `config.thumbnailsPerSecond` yields that many tiles per timeline second (e.g. 6/s at default).
     var mediaStripTileWidth: CGFloat {
         let tps = max(config.thumbnailsPerSecond, 1)
         return layout.pointsPerSecond / CGFloat(tps)
     }
-    
+
     /// How many thumbnail tiles fill the current clip content width at the configured density.
     var mediaStripTileCount: Int {
         let w = mediaStripTileWidth
         return max(Int(ceil(contentView.bounds.width / max(w, 1))), 1)
     }
-    
+
     /// Called after a trim gesture ends so subclasses can update
     /// visual content (e.g. reload thumbnails with the new source offset).
     func didFinishTrimming() {}
-    
+
     private func setupView() {
         clipsToBounds = false
         isUserInteractionEnabled = true
         layer.cornerRadius = config.clipCornerRadius
         backgroundColor = .clear
-        
+
         mediaContainerView.clipsToBounds = true
         addSubview(mediaContainerView)
         setupMediaContent()
-        
+
         selectionBorderView.layer.borderColor = config.selectionColor.cgColor
         selectionBorderView.layer.borderWidth = config.selectionBorderWidth
         selectionBorderView.layer.cornerRadius = config.clipCornerRadius
         selectionBorderView.backgroundColor = .clear
         addSubview(selectionBorderView)
-        
+
         durationLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
         durationLabel.textColor = .white
         durationLabel.backgroundColor = UIColor.black.withAlphaComponent(0.45)
@@ -181,16 +180,16 @@ class TrackMediaView: UIView {
         durationLabel.clipsToBounds = true
         durationLabel.textAlignment = .center
         addSubview(durationLabel)
-        
+
         configureHandle(leftHandle, isLeft: true)
         configureHandle(rightHandle, isLeft: false)
-        
+
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
         addGestureRecognizer(tap)
         addGestureRecognizer(panGesture)
         leftHandle.addGestureRecognizer(leftHandlePan)
         rightHandle.addGestureRecognizer(rightHandlePan)
-        
+
         setSelected(false)
         configureMasterTrackReorderDragInteraction()
     }
@@ -216,7 +215,7 @@ class TrackMediaView: UIView {
         addInteraction(interaction)
         masterTrackReorderDragInteraction = interaction
     }
-    
+
     private func configureHandle(_ label: UILabel, isLeft: Bool) {
         label.text = isLeft ? "❮" : "❯"
         label.textAlignment = .center
@@ -229,17 +228,17 @@ class TrackMediaView: UIView {
         label.isUserInteractionEnabled = true
         addSubview(label)
     }
-    
+
     private func updateDurationLabel() {
         let total = max(Int(timelineRange.durationSeconds.rounded()), 0)
         durationString = String(format: "%02d:%02d", total / 60, total % 60)
         durationLabel.text = durationString
     }
-    
+
     @objc private func handleTap() {
         delegate?.trackMediaViewDidToggleSelection(self)
     }
-    
+
     @objc private func handleMovePan(_ gesture: UIPanGestureRecognizer) {
         switch gesture.state {
             case .began:
@@ -263,7 +262,7 @@ class TrackMediaView: UIView {
                 break
         }
     }
-    
+
     @objc private func handleLeftTrimPan(_ gesture: UIPanGestureRecognizer) {
         let isTimeBasedMedia: Bool = {
             switch clip.asset.mediaType {
@@ -281,13 +280,13 @@ class TrackMediaView: UIView {
             case .changed:
                 let tx = gesture.translation(in: superview).x
                 let minWidth = layout.width(forDurationSeconds: config.minClipDuration)
-                
+
                 if isMasterTrack {
                     // Master track: only width changes; origin.x is set by
                     // enforceContiguity in the delegate, keeping clips gap/overlap-free.
                     let deltaSeconds = layout.seconds(forXPosition: tx)
                     let newDuration: Double
-                    
+
                     if isTimeBasedMedia {
                         let sourceEnd = initialSourceRange.endSeconds
                         let rawSourceStart = initialSourceRange.startSeconds + deltaSeconds
@@ -299,7 +298,7 @@ class TrackMediaView: UIView {
                         newDuration = max(initialRange.durationSeconds - deltaSeconds, config.minClipDuration)
                         sourceRange.durationSeconds = newDuration
                     }
-                    
+
                     frame.size.width = layout.width(forDurationSeconds: newDuration)
                     timelineRange.durationSeconds = newDuration
                     notifyRangeChanged(allowExtension: true)
@@ -311,22 +310,22 @@ class TrackMediaView: UIView {
                     } else {
                         minClampedX = 0
                     }
-                    
+
                     let maxX = initialFrame.maxX - minWidth
                     let clampedX = min(max(initialFrame.minX + tx, minClampedX), maxX)
                     let newWidth = initialFrame.maxX - clampedX
                     frame.origin.x = clampedX
                     frame.size.width = newWidth
-                    
+
                     let startDeltaSeconds = layout.seconds(forXPosition: clampedX - initialFrame.minX)
                     timelineRange.startSeconds = initialRange.startSeconds + startDeltaSeconds
                     timelineRange.durationSeconds = max(layout.seconds(forXPosition: newWidth), config.minClipDuration)
-                    
+
                     if isTimeBasedMedia {
                         sourceRange.startSeconds = max(initialSourceRange.startSeconds + startDeltaSeconds, 0)
                         sourceRange.durationSeconds = timelineRange.durationSeconds
                     }
-                    
+
                     notifyRangeChanged(allowExtension: true)
                 }
             case .ended, .cancelled:
@@ -336,7 +335,7 @@ class TrackMediaView: UIView {
                 break
         }
     }
-    
+
     @objc private func handleRightTrimPan(_ gesture: UIPanGestureRecognizer) {
         let isTimeBasedMedia: Bool = {
             switch clip.asset.mediaType {
@@ -355,7 +354,7 @@ class TrackMediaView: UIView {
                 let tx = gesture.translation(in: superview).x
                 let minWidth = layout.width(forDurationSeconds: config.minClipDuration)
                 let candidateWidth = initialFrame.width + tx
-                
+
                 let maxWidth: CGFloat
                 if isTimeBasedMedia {
                     let maxDuration = maxSourceEnd - sourceRange.startSeconds
@@ -363,22 +362,22 @@ class TrackMediaView: UIView {
                 } else {
                     maxWidth = .greatestFiniteMagnitude
                 }
-                
+
                 var allowedMaxWidth = maxWidth
                 if !isMasterTrack {
                     let maxEndX = layout.xPosition(forSeconds: maxTrackDuration)
                     let availableWidth = max(maxEndX - initialFrame.minX, minWidth)
                     allowedMaxWidth = min(allowedMaxWidth, availableWidth)
                 }
-                
+
                 let newWidth = min(max(candidateWidth, minWidth), allowedMaxWidth)
                 frame.size.width = newWidth
                 timelineRange.durationSeconds = max(layout.seconds(forXPosition: newWidth), config.minClipDuration)
-                
+
                 if isTimeBasedMedia {
                     sourceRange.durationSeconds = timelineRange.durationSeconds
                 }
-                
+
                 notifyRangeChanged(allowExtension: true)
             case .ended, .cancelled:
                 didFinishTrimming()
@@ -387,7 +386,7 @@ class TrackMediaView: UIView {
                 break
         }
     }
-    
+
     private func notifyRangeChanged(allowExtension: Bool) {
         // Sync base duration label and give subclasses a hook to react
         // (e.g. audio/text clips updating their title + duration text)

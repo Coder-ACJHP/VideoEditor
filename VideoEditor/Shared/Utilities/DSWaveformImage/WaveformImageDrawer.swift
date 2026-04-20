@@ -5,7 +5,7 @@ import UIKit
 
 /// Renders a DSImage of the waveform data calculated by the analyzer.
 public final class WaveformImageDrawer {
-    
+
     public enum GenerationError: Error { case generic }
 
     public init() {}
@@ -48,7 +48,7 @@ public final class WaveformImageDrawer {
                               renderer: WaveformRenderer = LinearWaveformRenderer(),
                               qos: DispatchQoS.QoSClass = .userInitiated,
                               position: Waveform.Position = .middle,
-                              completionHandler: @escaping (Result<DSImage, Error>) -> ()) {
+                              completionHandler: @escaping (Result<DSImage, Error>) -> Void) {
         Task {
             do {
                 let image = try await render(fromAudioAt: audioAssetURL, with: configuration, renderer: renderer, qos: qos, position: position)
@@ -77,7 +77,7 @@ extension WaveformImageDrawer {
             : samples.count - lastSampleCount
 
         lastSampleCount = samples.count
-        
+
         // Reset the cumulative lastOffset when new drawing begins
         if samples.count == newSampleCount {
             lastOffset = 0
@@ -96,7 +96,7 @@ extension WaveformImageDrawer {
         let clippedSamples = Array(samples[startSample..<samples.count])
         let dampedSamples = configuration.shouldDamp ? damp(clippedSamples, with: configuration) : clippedSamples
         let paddedSamples = shouldDrawSilencePadding ? Array(repeating: 1, count: samplesNeeded - clippedSamples.count) + dampedSamples : dampedSamples
-        
+
         draw(on: context, from: paddedSamples, with: configuration, renderer: renderer, position: position)
     }
 

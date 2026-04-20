@@ -3,7 +3,6 @@
 // VideoEditor
 //  Created by Coder ACJHP on 27.03.2026.
 
-
 import Foundation
 import CoreImage
 import CoreImage.CIFilterBuiltins
@@ -11,7 +10,7 @@ import CoreImage.CIFilterBuiltins
 extension CIFilter {
 
     // MARK: - Disintegrate transition (`CIDisintegrateWithMaskTransition`)
-    
+
     static func disintergrateTransitionFilter(
         inputImage: CIImage,
         targetImage: CIImage,
@@ -29,7 +28,7 @@ extension CIFilter {
         disintergrateTransition.shadowOffset = CGPoint(x: 0.5, y: 0.5)
         return disintergrateTransition
     }
-    
+
     // MARK: - Accordion fold (`CIAccordionFoldTransition`)
 
     static func accordionFoldTransitionFilter(
@@ -37,7 +36,7 @@ extension CIFilter {
         targetImage: CIImage,
         time: Float
     ) -> CIFilter? {
-        
+
         let accordionFoldTransition = CIFilter.accordionFoldTransition()
         accordionFoldTransition.setDefaults()
         accordionFoldTransition.inputImage = inputImage

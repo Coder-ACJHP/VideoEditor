@@ -3,7 +3,6 @@
 // VideoEditor
 //  Created by Coder ACJHP on 27.03.2026.
 
-
 import Foundation
 import UIKit
 
@@ -63,7 +62,6 @@ final class AudioTrackTableViewCell: UITableViewCell {
         contentView.backgroundColor = .clear
         selectionStyle = .none
 
-
         contentView.addSubview(thumbContainer)
         thumbContainer.addSubview(thumbIcon)
         contentView.addSubview(titleLabel)
@@ -91,7 +89,7 @@ final class AudioTrackTableViewCell: UITableViewCell {
             statsLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             statsLabel.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -12),
             statsLabel.topAnchor.constraint(equalTo: artistLabel.bottomAnchor, constant: 4),
-            statsLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -10),
+            statsLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -10)
         ])
     }
 

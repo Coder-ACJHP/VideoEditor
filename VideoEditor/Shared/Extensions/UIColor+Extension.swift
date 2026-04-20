@@ -3,20 +3,19 @@
 // VideoEditor
 //  Created by Coder ACJHP on 27.03.2026.
 
-
 import Foundation
 import UIKit
 
 extension UIColor {
-    
+
     convenience init(red: Int, green: Int, blue: Int) {
         assert(red >= 0 && red <= 255, "Invalid red component")
         assert(green >= 0 && green <= 255, "Invalid green component")
         assert(blue >= 0 && blue <= 255, "Invalid blue component")
-        
+
         self.init(red: CGFloat(red) / 255.0, green: CGFloat(green) / 255.0, blue: CGFloat(blue) / 255.0, alpha: 1.0)
     }
-    
+
     convenience init(rgb: Int) {
         self.init(
             red: (rgb >> 16) & 0xFF,
@@ -24,7 +23,7 @@ extension UIColor {
             blue: rgb & 0xFF
         )
     }
-    
+
     /**
      Create UIColor object from hex value.
      
@@ -47,13 +46,13 @@ extension UIColor {
         }
         self.init(displayP3Red: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: CGFloat(a) / 255)
     }
-    
+
     func toRgbString() -> (r: String, g: String, b: String) {
-        var r:CGFloat = 0
-        var g:CGFloat = 0
-        var b:CGFloat = 0
-        var a:CGFloat = 0
-        
+        var r: CGFloat = 0
+        var g: CGFloat = 0
+        var b: CGFloat = 0
+        var a: CGFloat = 0
+
         getRed(&r, green: &g, blue: &b, alpha: &a)
         if r >= 0 && g >= 0 && b >= 0 {
             return (String(Int(r*255)), String(Int(g*255)), String(Int(b*255)))
@@ -61,31 +60,31 @@ extension UIColor {
             return ("0", "0", "0")
         }
     }
-    
+
     func toHexString() -> String {
-        var r:CGFloat = 0
-        var g:CGFloat = 0
-        var b:CGFloat = 0
-        var a:CGFloat = 0
-        
+        var r: CGFloat = 0
+        var g: CGFloat = 0
+        var b: CGFloat = 0
+        var a: CGFloat = 0
+
         getRed(&r, green: &g, blue: &b, alpha: &a)
-        
+
         if r >= 0 && g >= 0 && b >= 0 {
-            
-            let rgb:Int = (Int)(r*255)<<16 | (Int)(g*255)<<8 | (Int)(b*255)<<0
-            return String(format:"%06x", rgb).uppercased()
-            
+
+            let rgb: Int = (Int)(r*255)<<16 | (Int)(g*255)<<8 | (Int)(b*255)<<0
+            return String(format: "%06x", rgb).uppercased()
+
         } else { return "000000" }
     }
-    
+
     func lighter(by percentage: CGFloat = 30.0) -> UIColor? {
         return self.adjust(by: abs(percentage) )
     }
-    
+
     func darker(by percentage: CGFloat = 30.0) -> UIColor? {
         return self.adjust(by: -1 * abs(percentage) )
     }
-    
+
     private func adjust(by percentage: CGFloat = 30.0) -> UIColor? {
         var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
         if self.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {

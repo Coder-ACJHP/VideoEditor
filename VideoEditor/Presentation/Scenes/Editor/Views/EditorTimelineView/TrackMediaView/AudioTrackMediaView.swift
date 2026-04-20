@@ -40,14 +40,14 @@ final class AudioTrackMediaView: TrackMediaView {
         label.layer.masksToBounds = false
         return label
     }()
-    
+
     private let waveformImageView: UIImageView = {
         let imageView = UIImageView(image: nil)
         imageView.contentMode = .scaleAspectFit
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()
-    
+
     // Mocable waveform generator (protocol based)
     private let waveFormService: WaveformGenerating = LocalWaveformService()
 
@@ -73,12 +73,12 @@ final class AudioTrackMediaView: TrackMediaView {
             waveformImageView.image = image
         }
     }
-    
+
     override func layoutSubviews() {
         super.layoutSubviews()
         updateSubviewFrames()
     }
-    
+
     private func updateSubviewFrames(animated: Bool = false) {
         let newFrame = CGRect(
             x: wfLeftPadding,
@@ -86,7 +86,7 @@ final class AudioTrackMediaView: TrackMediaView {
             width: bounds.width - (wfLeftPadding * 2),
             height: bounds.height - (wfTopBottomPadding * 2)
         )
-        
+
         if animated {
             UIView.animate(
                 withDuration: 0.5,
@@ -102,7 +102,7 @@ final class AudioTrackMediaView: TrackMediaView {
             titleLabel.frame = newFrame
         }
     }
-    
+
     private func updateTitle(using range: ClipTimeRange) {
         let baseName = waveFormService.displayName(for: clip)
         titleLabel.text = "\(baseName) - \(durationString)"
@@ -113,7 +113,7 @@ final class AudioTrackMediaView: TrackMediaView {
         // Keep duration text in sync with clip length.
         updateTitle(using: range)
     }
-    
+
     override func setSelected(_ selected: Bool) {
         super.setSelected(selected)
         // move title label to forward (didSet will handle frame updates)

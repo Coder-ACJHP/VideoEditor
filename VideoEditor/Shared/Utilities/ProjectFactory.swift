@@ -17,14 +17,14 @@ enum ProjectFactory {
             return "New Project \(newCount)"
         }
     }
-    
+
     nonisolated private static let projectCountKey = "createdAppCount"
-    
+
     nonisolated private static var createdProjectsCount: Int {
         get { UserDefaults.standard.integer(forKey: projectCountKey) }
         set { UserDefaults.standard.set(newValue, forKey: projectCountKey) }
     }
-    
+
     struct ImportedMedia: Equatable {
         let asset: AssetIdentifier
         let durationSeconds: Double?

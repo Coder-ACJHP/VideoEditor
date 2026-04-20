@@ -1,2 +1,13 @@
 .DS_Store
 .cursor/
+
+# Fastlane artifacts
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/test_output
+fastlane/screenshots
+*.ipa
+*.app
+
+# Secrets
+.env
